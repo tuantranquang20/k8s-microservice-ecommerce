@@ -1,0 +1,25 @@
+# frontend production values
+replicaCount: 2
+image:
+  repository: "123456789.dkr.ecr.ap-southeast-1.amazonaws.com/ecommerce-eks/frontend"
+  tag: "latest"
+  pullPolicy: IfNotPresent
+service:
+  type: ClusterIP
+  port: 80
+resources:
+  requests: { cpu: "50m",  memory: "32Mi" }   # Nginx is very lightweight
+  limits:   { cpu: "200m", memory: "64Mi" }
+livenessProbe:
+  httpGet: { path: /, port: 80 }
+  initialDelaySeconds: 5
+  periodSeconds: 20
+readinessProbe:
+  httpGet: { path: /, port: 80 }
+  initialDelaySeconds: 5
+  periodSeconds: 10
+serviceAccount:
+  create: false
+  name: ""
+vault:
+  enabled: false

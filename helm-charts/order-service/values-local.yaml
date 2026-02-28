@@ -1,0 +1,15 @@
+# order-service / k3d local overrides
+replicaCount: 1
+image:
+  repository: "k3d-local-registry:5050/order-service"
+  tag: "latest"
+  pullPolicy: Always
+resources:
+  requests: { cpu: "50m",  memory: "32Mi" }
+  limits:   { cpu: "200m", memory: "64Mi" }
+env:
+  GIN_MODE: "debug"
+  DB_PASSWORD: "changeme"
+  REDIS_PASSWORD: ""
+vault:
+  enabled: false

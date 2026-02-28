@@ -1,0 +1,53 @@
+# ============================================================
+# kong-plugins.yaml — KongPlugin CRDs
+# ============================================================
+# LEARNING NOTE — How Kong plugins work:
+#   1. We deploy KongPlugin resources (CRDs provided by the Kong Ingress Controller)
+#   2. We annotate Kubernetes Services or Ingresses with the plugin name
+#   3. Kong Controller reads the annotation and configures Kong's data plane
+#
+# This is the Kubernetes-native way to configure Kong — no Admin API calls needed!
+
+# ── Rate Limiting Plugin ───────────────────────────────────────
+# Applied globally (no namespace restriction) to protect all routes.
+# Limits each client to 100 requests/minute.
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: rate-limiting
+  namespace: ecommerce-dev
+  annotations:
+    kubernetes.io/ingress.class: kong
+config:
+  # Allows 100 requests per minute per consumer IP
+  minute: 100
+  policy: local    # "local" = per-Kong-pod counter (use "redis" in multi-pod prod for accurate rate limiting)
+plugin: rate-limiting
+---
+# ── Key Authentication Plugin ─────────────────────────────────
+# Requires an API key for payment endpoints.
+# Keys are managed via Kong's Admin API or via KongConsumer CRDs.
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: key-auth
+  namespace: ecommerce-dev
+config:
+  key_names: ["apikey"]      # Clients pass their key as ?apikey=XXX or X-Api-Key header
+  hide_credentials: true     # Don't forward the api key to upstream services
+plugin: key-auth
+---
+# ── Request Transformer Plugin ────────────────────────────────
+# Adds a header to every upstream request identifying traffic came through Kong.
+# Useful for rate-limit bypass prevention and debugging.
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: request-transformer
+  namespace: ecommerce-dev
+config:
+  add:
+    headers:
+      - "X-Forwarded-By:kong"
+      - "X-Service-Version:1.0"
+plugin: request-transformer

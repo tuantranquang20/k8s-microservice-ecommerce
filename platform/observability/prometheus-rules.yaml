@@ -1,0 +1,104 @@
+# ============================================================
+# prometheus-rules.yaml — PrometheusRule CRDs
+# ============================================================
+# LEARNING NOTE: PrometheusRules are K8s CRDs from the kube-prometheus-stack.
+# The Prometheus Operator reads these and dynamically adds alerting rules.
+# You don't need to restart Prometheus — rules hot-reload!
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ecommerce-alerts
+  namespace: monitoring              # kube-prometheus-stack deploys to 'monitoring' namespace
+  labels:
+    # This label is required for the Prometheus Operator to discover the rule
+    release: kube-prometheus-stack
+spec:
+  groups:
+    # ── Group 1: Pod Health ─────────────────────────────────────
+    - name: pod-health
+      interval: 30s                  # Evaluate rules every 30 seconds
+      rules:
+        # Alert when any container is in CrashLoopBackOff.
+        # K8s increases the restart delay exponentially (1s → 2s → 4s → ... → 5min)
+        # so sustained CrashLoopBackOff means the service is broken, not just slow to start.
+        - alert: ContainerCrashLoopBackOff
+          expr: |
+            kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"} == 1
+          for: 2m                    # Wait 2 minutes before firing (avoids flapping on startup)
+          labels:
+            severity: critical
+          annotations:
+            summary: "Container {{ $labels.container }} is in CrashLoopBackOff"
+            description: |
+              Pod {{ $labels.namespace }}/{{ $labels.pod }} container {{ $labels.container }}
+              has been in CrashLoopBackOff for > 2 minutes.
+              Check logs: kubectl logs {{ $labels.pod }} -n {{ $labels.namespace }} --previous
+
+        # Alert when a pod has been in Pending state too long.
+        # Usually means: resource limits too high, no nodes available, or PVC not binding.
+        - alert: PodNotScheduled
+          expr: kube_pod_status_phase{phase="Pending"} == 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod {{ $labels.pod }} has been pending for 5 minutes"
+            description: |
+              Check: kubectl describe pod {{ $labels.pod }} -n {{ $labels.namespace }}
+              Common causes: Insufficient CPU/memory, PVC unbound, image pull error.
+
+    # ── Group 2: HTTP Error Rate ────────────────────────────────
+    - name: http-errors
+      interval: 60s
+      rules:
+        # Alert if 5xx error rate exceeds 5% of traffic for any service.
+        # Formula: (5xx requests / all requests) > 0.05 over a 5-minute window.
+        - alert: HighHTTPErrorRate
+          expr: |
+            (
+              sum(rate(user_service_http_requests_total{status_code=~"5.."}[5m])) by (route)
+              /
+              sum(rate(user_service_http_requests_total[5m])) by (route)
+            ) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "user-service 5xx error rate > 5% on route {{ $labels.route }}"
+            description: "Error rate is {{ $value | humanizePercentage }} — check service logs."
+
+        # Same rule pattern for other services
+        - alert: HighHTTPErrorRateBFF
+          expr: |
+            (
+              sum(rate(bff_http_requests_total{status=~"5.."}[5m])) by (path)
+              /
+              sum(rate(bff_http_requests_total[5m])) by (path)
+            ) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "api-gateway-bff 5xx error rate > 5% on {{ $labels.path }}"
+
+    # ── Group 3: Resource Usage ─────────────────────────────────
+    - name: resource-usage
+      interval: 60s
+      rules:
+        # Alert if a container uses >90% of its memory limit.
+        # Approaching the limit → pod will be OOMKilled soon.
+        - alert: ContainerMemoryHighUsage
+          expr: |
+            container_memory_usage_bytes
+            /
+            container_spec_memory_limit_bytes > 0.9
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Container {{ $labels.container }} memory > 90% of limit"
+            description: |
+              {{ $labels.namespace }}/{{ $labels.pod }}/{{ $labels.container }}
+              is using {{ $value | humanizePercentage }} of its memory limit.
+              Consider increasing the limit or optimising memory usage.

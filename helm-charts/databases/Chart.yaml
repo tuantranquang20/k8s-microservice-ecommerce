@@ -1,0 +1,37 @@
+apiVersion: v2
+name: databases
+description: |
+  Parent chart that installs all database dependencies via Bitnami sub-charts.
+  WHY Bitnami? They provide production-hardened charts with:
+    - StatefulSet management with PodDisruptionBudgets
+    - Automatic secret generation
+    - Health checks and readiness probes
+    - PVC templates for storage persistence
+  We do NOT write custom StatefulSet templates here — Bitnami handles that.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+# ── Dependencies ──────────────────────────────────────────────
+# Run `helm dependency update helm-charts/databases` before first install.
+# This downloads the charts into the charts/ subdirectory.
+dependencies:
+  # PostgreSQL for user-service (schema: users) + order-service (schema: orders)
+  # user-service and order-service connect to the same PostgreSQL instance
+  # but use SEPARATE DATABASES (not separate instances) to save resources.
+  - name: postgresql
+    version: "15.4.0"
+    repository: "https://charts.bitnami.com/bitnami"
+    alias: postgresql   # Helm values prefix: postgresql.xxx
+
+  # MongoDB for product-service
+  - name: mongodb
+    version: "15.6.0"
+    repository: "https://charts.bitnami.com/bitnami"
+    alias: mongodb      # Helm values prefix: mongodb.xxx
+
+  # Redis for cache + notification Pub/Sub
+  - name: redis
+    version: "20.0.0"
+    repository: "https://charts.bitnami.com/bitnami"
+    alias: redis        # Helm values prefix: redis.xxx

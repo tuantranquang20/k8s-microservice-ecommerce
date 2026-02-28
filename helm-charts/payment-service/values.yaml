@@ -1,0 +1,30 @@
+# payment-service production values
+replicaCount: 2
+image:
+  repository: "123456789.dkr.ecr.ap-southeast-1.amazonaws.com/ecommerce-eks/payment-service"
+  tag: "latest"
+  pullPolicy: IfNotPresent
+service:
+  type: ClusterIP
+  port: 8090
+resources:
+  requests: { cpu: "100m", memory: "64Mi" }    # Rust is extremely memory-efficient
+  limits:   { cpu: "500m", memory: "128Mi" }
+livenessProbe:
+  httpGet: { path: /health, port: 8090 }
+  initialDelaySeconds: 15
+  periodSeconds: 20
+readinessProbe:
+  httpGet: { path: /health, port: 8090 }
+  initialDelaySeconds: 15
+  periodSeconds: 10
+env:
+  RUST_LOG: "info"
+  PORT: "8090"
+vault:
+  enabled: true
+  role: "payment-service"
+serviceAccount:
+  create: true
+  name: "payment-service"
+  annotations: {}

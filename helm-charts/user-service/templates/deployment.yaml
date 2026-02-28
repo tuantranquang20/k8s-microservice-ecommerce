@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "user-service.fullname" . }}
+  labels:
+    {{- include "user-service.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  # selector must match the labels on the pod template
+  selector:
+    matchLabels:
+      {{- include "user-service.selectorLabels" . | nindent 6 }}
+  strategy:
+    # RollingUpdate: replace pods one at a time so the service stays available
+    # maxSurge=1: allow 1 extra pod above desired count during rollout
+    # maxUnavailable=0: never take a pod down before a new one is ready
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        {{- include "user-service.selectorLabels" . | nindent 8 }}
+      annotations:
+        # Force pod restart when the ConfigMap changes.
+        # Helm includes the checksum of the configmap in the pod annotation;
+        # any change to the CM triggers a rolling restart.
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- if .Values.vault.enabled }}
+        # Vault Agent Injector annotations — when Vault is enabled, the mutating
+        # webhook reads these and injects a sidecar container that fetches secrets
+        # and writes them as environment variables or files.
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: {{ .Values.vault.role | quote }}
+        {{- range .Values.vault.secrets }}
+        vault.hashicorp.com/agent-inject-secret-{{ .env }}: {{ .path | quote }}
+        vault.hashicorp.com/agent-inject-template-{{ .env }}: |
+          {{`{{- with secret "`}}{{ .path }}{{`" -}}`}}
+          export {{ .env }}={{`{{ .Data.data.`}}{{ .key }}{{` }}`}}
+          {{`{{- end }}`}}
+        {{- end }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "user-service.serviceAccountName" . }}
+      # Security context at pod level — prevent privilege escalation
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          # Environment variables from the ConfigMap
+          envFrom:
+            - configMapRef:
+                name: {{ include "user-service.fullname" . }}-config
+          # Secrets injected directly (local dev without Vault)
+          {{- if not .Values.vault.enabled }}
+          env:
+            - name: DB_PASSWORD
+              value: {{ .Values.env.DB_PASSWORD | default "changeme" | quote }}
+            - name: JWT_SECRET
+              value: {{ .Values.env.JWT_SECRET | default "change-me" | quote }}
+          {{- end }}
+          # Liveness probe: restart the container if /health returns non-200
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          # Readiness probe: stop routing traffic if /health returns non-200
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          # Container security context
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

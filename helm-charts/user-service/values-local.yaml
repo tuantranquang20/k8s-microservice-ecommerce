@@ -1,0 +1,40 @@
+# =============================================================
+# values-local.yaml — user-service (k3d / local overrides)
+# =============================================================
+# This file is merged ON TOP OF values.yaml when deploying locally.
+# Only values that differ from production defaults are listed here.
+# Usage: helm install user-service ./helm-charts/user-service \
+#          -f helm-charts/user-service/values.yaml \
+#          -f helm-charts/user-service/values-local.yaml
+
+replicaCount: 1   # Single replica locally — saves resources
+
+image:
+  # Use the k3d local registry instead of ECR
+  repository: "k3d-local-registry:5050/user-service"
+  tag: "latest"
+  pullPolicy: Always  # Always pull in dev so :latest is always fresh
+
+# Reduced resource requests for local dev — k3d nodes have limited RAM
+resources:
+  requests:
+    cpu: "50m"
+    memory: "64Mi"
+  limits:
+    cpu: "200m"
+    memory: "128Mi"
+
+env:
+  NODE_ENV: "development"
+  DB_HOST: "databases-postgresql"  # same name — databases chart is the same locally
+  DB_PASSWORD: "changeme"          # plain value in local — no Vault in k3d by default
+  JWT_SECRET: "local-dev-secret-not-for-prod"
+
+vault:
+  enabled: false   # Vault Agent sidecar disabled locally
+
+autoscaling:
+  enabled: false
+
+podDisruptionBudget:
+  enabled: false

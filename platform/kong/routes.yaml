@@ -1,0 +1,88 @@
+# ============================================================
+# routes.yaml — Kubernetes Ingress manifest (Kong class)
+# ============================================================
+# This Ingress resource tells Kong how to route traffic based on URL paths.
+#
+# LEARNING NOTE — Traffic flow:
+#   Internet → AWS ALB → Kong Gateway (ClusterIP) → Service → Pod
+#
+# Kong reads this Ingress, creates Route objects in its data plane,
+# and applies KongPlugin CRDs to the configured services.
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ecommerce-routes
+  namespace: ecommerce-dev
+  annotations:
+    # Tell Kubernetes which Ingress Controller handles this (Kong)
+    kubernetes.io/ingress.class: "kong"
+
+    # Attach plugins to this Ingress — comma-separated list of KongPlugin names
+    konghq.com/plugins: "rate-limiting,request-transformer"
+
+    # Reference the KongIngress config for upstream settings
+    konghq.com/override: "ecommerce-ingress-config"
+
+    # Strip the path prefix before forwarding to upstream
+    # e.g. /api/users/me → /users/me (user-service doesn't have /api prefix)
+    konghq.com/strip-path: "true"
+spec:
+  rules:
+    - http:
+        paths:
+          # ── BFF / Aggregation (general /api/* goes to BFF first) ────
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway-bff
+                port: { number: 3001 }
+
+          # ── User Service ────────────────────────────────────────────
+          - path: /api/users
+            pathType: Prefix
+            backend:
+              service:
+                name: user-service
+                port: { number: 3000 }
+
+          # ── Auth (handled by user-service) ──────────────────────────
+          - path: /api/auth
+            pathType: Prefix
+            backend:
+              service:
+                name: user-service
+                port: { number: 3000 }
+
+          # ── Product Service ─────────────────────────────────────────
+          - path: /api/products
+            pathType: Prefix
+            backend:
+              service:
+                name: product-service
+                port: { number: 8000 }
+
+          # ── Order Service ───────────────────────────────────────────
+          - path: /api/orders
+            pathType: Prefix
+            backend:
+              service:
+                name: order-service
+                port: { number: 8080 }
+
+          # ── Payment Service (key-auth also applied here) ─────────────
+          - path: /api/payments
+            pathType: Prefix
+            backend:
+              service:
+                name: payment-service
+                port: { number: 8090 }
+
+          # ── Frontend (catch-all) ────────────────────────────────────
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port: { number: 80 }

@@ -1,0 +1,43 @@
+# ============================================================
+# app-of-apps.yaml — ArgoCD App of Apps (Root Application)
+# ============================================================
+# LEARNING NOTE — App of Apps pattern:
+#
+# Instead of registering each service individually in ArgoCD,
+# we create ONE "root" Application that points to the argocd/apps/ directory.
+# ArgoCD then discovers and manages all other Applications in that directory.
+#
+# Benefits:
+#   - Single source of truth: adding a new service = add one YAML file
+#   - Self-healing: if someone deletes an Application manually, ArgoCD recreates it
+#   - Cascading control: delete the root → everything cleaned up
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: app-of-apps
+  namespace: argocd
+  # Finalizer: ArgoCD will clean up child applications before deleting this one
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  # The ArgoCD project that owns this application
+  project: default
+
+  source:
+    # Point at YOUR Git repository
+    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    targetRevision: HEAD        # Always sync from the latest commit on HEAD
+    path: argocd/apps           # Directory containing child Application manifests
+
+  destination:
+    server: https://kubernetes.default.svc  # "Same cluster" shortcut
+    namespace: argocd                        # Child Application resources stay in argocd ns
+
+  syncPolicy:
+    # Automated sync: ArgoCD checks for drift every 3 minutes by default
+    automated:
+      prune: true       # Delete resources that were removed from Git
+      selfHeal: true    # Revert manual changes in the cluster back to Git state
+    syncOptions:
+      - CreateNamespace=true   # Create the argocd namespace if missing

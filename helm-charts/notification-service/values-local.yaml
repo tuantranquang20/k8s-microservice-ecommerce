@@ -1,0 +1,11 @@
+# notification-service / k3d local overrides
+replicaCount: 1
+image:
+  repository: "k3d-local-registry:5050/notification-service"
+  tag: "latest"
+  pullPolicy: Always
+resources:
+  requests: { cpu: "30m", memory: "32Mi" }
+  limits:   { cpu: "100m", memory: "64Mi" }
+vault:
+  enabled: false

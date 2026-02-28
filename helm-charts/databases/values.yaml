@@ -1,0 +1,69 @@
+# =============================================================
+# values.yaml — databases chart (production defaults)
+# =============================================================
+# All values here are prefixed with the dependency alias.
+# When Bitnami PostgreSQL is installed, its service will be named:
+#   <release-name>-postgresql   e.g.: databases-postgresql
+# That is the DB_HOST used in service Helm charts.
+
+# ── PostgreSQL ────────────────────────────────────────────────
+postgresql:
+  # Authentication — passwords injected by Vault in production
+  auth:
+    postgresPassword: ""           # Root postgres password (from Vault)
+    username: ""                   # Additional user (not used here — services use postgres user)
+    database: "postgres"           # Default DB
+
+  # Create multiple databases at init time — one per service
+  # Bitnami PostgreSQL supports initdb scripts
+  primary:
+    initdb:
+      scripts:
+        create_databases.sql: |
+          -- Create databases for each service that uses PostgreSQL
+          CREATE DATABASE users;    -- user-service
+          CREATE DATABASE orders;   -- order-service
+
+    # PersistentVolumeClaim — data survives pod restarts
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClass: ""             # Empty = use cluster default (EBS in EKS, local-path in k3d)
+
+    resources:
+      requests: { cpu: "250m", memory: "256Mi" }
+      limits:   { cpu: "1000m", memory: "512Mi" }
+
+# ── MongoDB ───────────────────────────────────────────────────
+mongodb:
+  auth:
+    enabled: false                 # No auth in dev/learning — enable in production!
+    # In production: rootPassword comes from Vault
+
+  architecture: standalone         # Single instance for learning; use "replicaset" in prod
+
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: ""
+
+  resources:
+    requests: { cpu: "250m", memory: "256Mi" }
+    limits:   { cpu: "1000m", memory: "512Mi" }
+
+# ── Redis ─────────────────────────────────────────────────────
+redis:
+  architecture: standalone         # No sentinel in dev; use "sentinel" in prod for HA
+
+  auth:
+    enabled: false                 # For learning — enable in production
+
+  master:
+    persistence:
+      enabled: true
+      size: 5Gi
+      storageClass: ""
+
+    resources:
+      requests: { cpu: "100m", memory: "128Mi" }
+      limits:   { cpu: "500m", memory: "256Mi" }

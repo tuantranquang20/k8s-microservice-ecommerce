@@ -1,0 +1,35 @@
+# =============================================================
+# values-local.yaml — databases chart (k3d overrides)
+# =============================================================
+# k3d uses 'local-path' StorageClass (hostPath provisioner).
+# We reduce PVC sizes and resource requests for the laptop.
+
+postgresql:
+  auth:
+    postgresPassword: "changeme"   # Plain value — no Vault in k3d
+  primary:
+    persistence:
+      size: 1Gi
+      storageClass: "local-path"   # k3d default provisioner
+    resources:
+      requests: { cpu: "100m", memory: "128Mi" }
+      limits:   { cpu: "500m", memory: "256Mi" }
+
+mongodb:
+  auth:
+    enabled: false
+  persistence:
+    size: 1Gi
+    storageClass: "local-path"
+  resources:
+    requests: { cpu: "100m", memory: "128Mi" }
+    limits:   { cpu: "500m", memory: "256Mi" }
+
+redis:
+  master:
+    persistence:
+      size: 512Mi
+      storageClass: "local-path"
+    resources:
+      requests: { cpu: "50m",  memory: "64Mi" }
+      limits:   { cpu: "200m", memory: "128Mi" }

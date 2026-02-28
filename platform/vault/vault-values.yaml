@@ -1,0 +1,68 @@
+# ============================================================
+# vault-values.yaml — Helm values for HashiCorp Vault
+# ============================================================
+# Install Vault with: helm install vault hashicorp/vault -f platform/vault/vault-values.yaml
+#
+# LEARNING NOTE — Dev mode vs Production:
+#
+# DEV MODE (this file):
+#   ✓ Single-node, in-memory storage (no Raft, no Consul)
+#   ✓ Auto-unsealed at startup (no operator unsealing needed)
+#   ✓ Root token = "root" (printed in logs)
+#   ✗ ALL DATA IS LOST on pod restart
+#   → Perfect for learning: zero operational overhead
+#
+# PRODUCTION DIFFERENCES (see comments marked PROD):
+#   - server.dev.enabled: false
+#   - server.ha.enabled: true + raft storage (requires 3+ replicas)
+#   - Manual or KMS auto-unseal
+#   - TLS enabled (server.extraEnvironmentVars with VAULT_CAPATH)
+#   - audit log enabled (vault.hashicorp.com/audit)
+
+global:
+  enabled: true
+
+injector:
+  # Vault Agent Injector — mutating webhook that reads pod annotations
+  # and injects a Vault Agent sidecar + init container.
+  # The sidecar continuously refreshes secrets (for dynamic credentials).
+  enabled: true
+  resources:
+    requests: { cpu: "50m", memory: "64Mi" }
+    limits:   { cpu: "250m", memory: "128Mi" }
+
+server:
+  # ── DEV MODE ─────────────────────────────────────────────────
+  dev:
+    enabled: true        # PROD: set to false and configure HA below
+    devRootToken: "root" # PROD: remove this; root token is random and must be saved securely
+
+  # ── PROD: HA + Raft storage ───────────────────────────────────
+  # ha:
+  #   enabled: true
+  #   replicas: 3
+  #   raft:
+  #     enabled: true
+  #     setNodeId: true
+  #     config: |
+  #       ui = true
+  #       listener "tcp" {
+  #         tls_disable = 0
+  #         address = "[::]:8200"
+  #         tls_cert_file = "/vault/tls/tls.crt"
+  #         tls_key_file  = "/vault/tls/tls.key"
+  #       }
+  #       storage "raft" {
+  #         path    = "/vault/data"
+  #         node_id = "{{ NODE_ID }}"
+  #       }
+  #       api_addr     = "https://{{ POD_IP }}:8200"
+  #       cluster_addr = "https://{{ POD_IP }}:8201"
+
+  # Vault UI (accessible via port-forward)
+  ui:
+    enabled: true
+
+  resources:
+    requests: { cpu: "100m", memory: "128Mi" }
+    limits:   { cpu: "500m", memory: "256Mi" }

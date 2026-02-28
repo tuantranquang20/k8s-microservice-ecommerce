@@ -1,0 +1,32 @@
+# product-service production values
+replicaCount: 2
+image:
+  repository: "123456789.dkr.ecr.ap-southeast-1.amazonaws.com/ecommerce-eks/product-service"
+  tag: "latest"
+  pullPolicy: IfNotPresent
+service:
+  type: ClusterIP
+  port: 8000
+resources:
+  requests: { cpu: "100m", memory: "128Mi" }
+  limits:   { cpu: "500m", memory: "256Mi" }
+livenessProbe:
+  httpGet: { path: /health, port: 8000 }
+  initialDelaySeconds: 20
+  periodSeconds: 20
+readinessProbe:
+  httpGet: { path: /health, port: 8000 }
+  initialDelaySeconds: 15
+  periodSeconds: 10
+env:
+  PYTHON_ENV: "production"
+  PORT: "8000"
+  MONGO_URI: "mongodb://databases-mongodb:27017"
+  MONGO_DB: "products"
+vault:
+  enabled: true
+  role: "product-service"
+serviceAccount:
+  create: true
+  name: "product-service"
+  annotations: {}

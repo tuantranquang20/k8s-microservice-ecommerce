@@ -1,0 +1,6 @@
+apiVersion: v2
+name: api-gateway-bff
+description: Helm chart for api-gateway-bff (Python + FastAPI aggregator)
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

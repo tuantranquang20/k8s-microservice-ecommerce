@@ -1,0 +1,10 @@
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+motor==3.4.0           # Async MongoDB driver (wraps PyMongo with asyncio)
+pymongo==4.7.2
+pydantic==2.7.1
+pydantic-settings==2.2.1
+python-dotenv==1.0.1
+prometheus-client==0.20.0
+python-jose[cryptography]==3.3.0  # JWT for validating tokens from user-service
+httpx==0.27.0          # Async HTTP client (for service-to-service calls)

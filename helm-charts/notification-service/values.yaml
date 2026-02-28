@@ -1,0 +1,31 @@
+# notification-service production values
+replicaCount: 1   # Single subscriber — only one should consume each Redis message
+image:
+  repository: "123456789.dkr.ecr.ap-southeast-1.amazonaws.com/ecommerce-eks/notification-service"
+  tag: "latest"
+  pullPolicy: IfNotPresent
+service:
+  type: ClusterIP
+  port: 3002
+resources:
+  requests: { cpu: "50m",  memory: "64Mi" }
+  limits:   { cpu: "200m", memory: "128Mi" }
+livenessProbe:
+  httpGet: { path: /health, port: 3002 }
+  initialDelaySeconds: 10
+  periodSeconds: 20
+readinessProbe:
+  httpGet: { path: /health, port: 3002 }
+  initialDelaySeconds: 10
+  periodSeconds: 10
+env:
+  NODE_ENV: "production"
+  PORT: "3002"
+  REDIS_HOST: "databases-redis-master"
+  REDIS_PORT: "6379"
+vault:
+  enabled: false   # No secrets needed — Redis has no auth in this setup
+serviceAccount:
+  create: true
+  name: "notification-service"
+  annotations: {}

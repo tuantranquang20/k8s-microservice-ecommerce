@@ -1,0 +1,97 @@
+# ============================================================
+# ci-user-service.yml — GitHub Actions CI for user-service
+# ============================================================
+# Triggered ONLY when files under services/user-service/ change.
+# This path filtering prevents all CI from running on every commit.
+#
+# Pipeline stages:
+#   1. Lint   → eslint catches code quality issues early
+#   2. Build  → docker build validates the Dockerfile + dependencies
+#   3. Push   → push to ECR (only on main branch)
+
+name: CI — user-service
+
+on:
+  push:
+    paths:
+      # Only run this workflow if user-service files changed
+      - "services/user-service/**"
+      - ".github/workflows/ci-user-service.yml"
+  pull_request:
+    paths:
+      - "services/user-service/**"
+
+env:
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+  ECR_REPOSITORY: ecommerce-eks/user-service
+  IMAGE_TAG: ${{ github.sha }}  # Use git commit SHA for immutable tags (not :latest)
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/user-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: services/user-service/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+  build-and-push:
+    name: Build & Push
+    runs-on: ubuntu-latest
+    needs: lint   # Only run if lint passed
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build image
+        working-directory: services/user-service
+        run: |
+          docker build \
+            --tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            --tag $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+            --cache-from $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+            --build-arg BUILDKIT_INLINE_CACHE=1 \
+            .
+
+      # Only push when merging to main (not on PRs from forks)
+      - name: Push image to ECR
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+      # Update the Helm chart image tag so ArgoCD picks up the new image.
+      # This is the GitOps approach: update Git, ArgoCD reconciles.
+      - name: Update Helm chart image tag
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          sed -i "s|tag: .*|tag: \"$IMAGE_TAG\"|" helm-charts/user-service/values.yaml
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add helm-charts/user-service/values.yaml
+          git commit -m "ci: update user-service image tag to $IMAGE_TAG [skip ci]" || echo "No changes"
+          git push

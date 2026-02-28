@@ -1,0 +1,353 @@
+# ============================================================
+# Per-service ArgoCD Applications — dev and staging environments
+# ============================================================
+# LEARNING NOTE: Each Application tells ArgoCD:
+#   - WHERE the source is (Git + path)
+#   - WHERE to deploy (namespace)
+#   - HOW to sync (automated + self-heal)
+#
+# We use Helm as the source type — ArgoCD renders the chart at sync time.
+# This means you get ArgoCD's GitOps benefits WITH Helm's templating power.
+
+# ─────────────────────────────────────────────────────────────
+# user-service — DEV
+# ─────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: user-service-dev
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    targetRevision: HEAD
+    path: helm-charts/user-service
+    helm:
+      # valueFiles list is additive — local overrides applied on top of defaults
+      valueFiles:
+        - values.yaml
+        - values-local.yaml   # dev uses local settings (lower replicas, debug mode)
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecommerce-dev
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true]
+---
+# user-service — STAGING
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: user-service-staging
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    targetRevision: HEAD
+    path: helm-charts/user-service
+    helm:
+      valueFiles: [values.yaml]   # Production values in staging (full replicas, Vault enabled)
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecommerce-staging
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true]
+---
+# ─────────────────────────────────────────────────────────────
+# product-service
+# ─────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: product-service-dev
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    targetRevision: HEAD
+    path: helm-charts/product-service
+    helm:
+      valueFiles: [values.yaml, values-local.yaml]
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecommerce-dev
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: product-service-staging
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    targetRevision: HEAD
+    path: helm-charts/product-service
+    helm:
+      valueFiles: [values.yaml]
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecommerce-staging
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true]
+---
+# ─────────────────────────────────────────────────────────────
+# order-service
+# ─────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: order-service-dev
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    targetRevision: HEAD
+    path: helm-charts/order-service
+    helm:
+      valueFiles: [values.yaml, values-local.yaml]
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecommerce-dev
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: order-service-staging
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    targetRevision: HEAD
+    path: helm-charts/order-service
+    helm:
+      valueFiles: [values.yaml]
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecommerce-staging
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true]
+---
+# ─────────────────────────────────────────────────────────────
+# payment-service
+# ─────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: payment-service-dev
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    targetRevision: HEAD
+    path: helm-charts/payment-service
+    helm:
+      valueFiles: [values.yaml, values-local.yaml]
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecommerce-dev
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: payment-service-staging
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    targetRevision: HEAD
+    path: helm-charts/payment-service
+    helm:
+      valueFiles: [values.yaml]
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecommerce-staging
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true]
+---
+# ─────────────────────────────────────────────────────────────
+# notification-service
+# ─────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: notification-service-dev
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    targetRevision: HEAD
+    path: helm-charts/notification-service
+    helm:
+      valueFiles: [values.yaml, values-local.yaml]
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecommerce-dev
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: notification-service-staging
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    targetRevision: HEAD
+    path: helm-charts/notification-service
+    helm:
+      valueFiles: [values.yaml]
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecommerce-staging
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true]
+---
+# ─────────────────────────────────────────────────────────────
+# api-gateway-bff
+# ─────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: api-gateway-bff-dev
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    targetRevision: HEAD
+    path: helm-charts/api-gateway-bff
+    helm:
+      valueFiles: [values.yaml, values-local.yaml]
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecommerce-dev
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: api-gateway-bff-staging
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    targetRevision: HEAD
+    path: helm-charts/api-gateway-bff
+    helm:
+      valueFiles: [values.yaml]
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecommerce-staging
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true]
+---
+# ─────────────────────────────────────────────────────────────
+# frontend
+# ─────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: frontend-dev
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    targetRevision: HEAD
+    path: helm-charts/frontend
+    helm:
+      valueFiles: [values.yaml, values-local.yaml]
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecommerce-dev
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: frontend-staging
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    targetRevision: HEAD
+    path: helm-charts/frontend
+    helm:
+      valueFiles: [values.yaml]
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecommerce-staging
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true]
+---
+# ─────────────────────────────────────────────────────────────
+# databases (Bitnami parent chart)
+# ─────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: databases-dev
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    targetRevision: HEAD
+    path: helm-charts/databases
+    helm:
+      valueFiles: [values.yaml, values-local.yaml]
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecommerce-dev
+  syncPolicy:
+    automated: { prune: false, selfHeal: true }  # prune:false prevents accidental DB deletion!
+    syncOptions: [CreateNamespace=true]

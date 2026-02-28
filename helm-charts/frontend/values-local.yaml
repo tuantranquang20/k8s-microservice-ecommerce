@@ -1,0 +1,9 @@
+# frontend / k3d local overrides
+replicaCount: 1
+image:
+  repository: "k3d-local-registry:5050/frontend"
+  tag: "latest"
+  pullPolicy: Always
+resources:
+  requests: { cpu: "20m", memory: "16Mi" }
+  limits:   { cpu: "100m", memory: "32Mi" }

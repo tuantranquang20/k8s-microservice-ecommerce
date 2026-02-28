@@ -1,0 +1,14 @@
+# payment-service / k3d local overrides
+replicaCount: 1
+image:
+  repository: "k3d-local-registry:5050/payment-service"
+  tag: "latest"
+  pullPolicy: Always
+resources:
+  requests: { cpu: "50m", memory: "32Mi" }
+  limits:   { cpu: "200m", memory: "64Mi" }
+env:
+  RUST_LOG: "debug"
+  JWT_SECRET: "local-dev-secret-not-for-prod"
+vault:
+  enabled: false

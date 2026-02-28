@@ -1,0 +1,32 @@
+[package]
+name = "payment-service"
+version = "1.0.0"
+edition = "2021"
+
+[[bin]]
+name = "payment-service"
+path = "src/main.rs"
+
+[dependencies]
+# Actix-web: high-performance async HTTP framework (benchmarks among the fastest in any language)
+actix-web = "4.5"
+# tokio: async runtime (actix-web uses it under the hood)
+tokio = { version = "1.37", features = ["full"] }
+# serde: serialization/deserialization framework
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+# dotenv: load .env file in development
+dotenv = "0.15"
+# uuid: generate payment IDs
+uuid = { version = "1.8", features = ["v4"] }
+# chrono: timestamps
+chrono = { version = "0.4", features = ["serde"] }
+# prometheus: metrics (using the official Rust client)
+prometheus = { version = "0.13", features = ["process"] }
+# jsonwebtoken: validate JWTs issued by user-service
+jsonwebtoken = "9.3"
+# log + env_logger: structured logging
+log = "0.4"
+env_logger = "0.11"
+# reqwest: HTTP client for upstream calls (async)
+reqwest = { version = "0.12", features = ["json"] }

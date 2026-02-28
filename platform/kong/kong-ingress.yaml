@@ -1,0 +1,29 @@
+# ============================================================
+# kong-ingress.yaml — KongIngress resource with plugin bindings
+# ============================================================
+# KongIngress extends a standard Kubernetes Ingress with Kong-specific
+# settings (upstream connection timeout, load balancing algorithm, etc.)
+# It is referenced from a Service or Ingress via annotation.
+
+apiVersion: configuration.konghq.com/v1
+kind: KongIngress
+metadata:
+  name: ecommerce-ingress-config
+  namespace: ecommerce-dev
+upstream:
+  # Least-connections for better latency distribution across service pods
+  algorithm: least-connections
+  # Health check settings for upstream services
+  healthchecks:
+    active:
+      healthy:
+        interval: 10        # Check every 10 seconds
+        successes: 1        # 1 success = mark healthy
+      unhealthy:
+        interval: 5
+        http_failures: 3    # 3 failures = mark unhealthy
+      http_path: /health    # Use our /health endpoint for health checks!
+proxy:
+  connect_timeout: 5000     # 5s connection timeout
+  read_timeout: 30000       # 30s read timeout (long operations like Rust cold start)
+  write_timeout: 10000      # 10s write timeout

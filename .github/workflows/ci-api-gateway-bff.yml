@@ -1,0 +1,25 @@
+name: CI — api-gateway-bff
+on:
+  push:
+    paths: ["services/api-gateway-bff/**", ".github/workflows/ci-api-gateway-bff.yml"]
+  pull_request:
+    paths: ["services/api-gateway-bff/**"]
+env:
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+  ECR_REPOSITORY: ecommerce-eks/api-gateway-bff
+  IMAGE_TAG: ${{ github.sha }}
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ secrets.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+      - working-directory: services/api-gateway-bff
+        run: docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+      - if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG

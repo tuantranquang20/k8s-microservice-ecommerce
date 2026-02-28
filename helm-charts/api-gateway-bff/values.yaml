@@ -1,0 +1,32 @@
+# api-gateway-bff production values
+replicaCount: 2
+image:
+  repository: "123456789.dkr.ecr.ap-southeast-1.amazonaws.com/ecommerce-eks/api-gateway-bff"
+  tag: "latest"
+  pullPolicy: IfNotPresent
+service:
+  type: ClusterIP
+  port: 3001
+resources:
+  requests: { cpu: "100m", memory: "128Mi" }
+  limits:   { cpu: "500m", memory: "256Mi" }
+livenessProbe:
+  httpGet: { path: /health, port: 3001 }
+  initialDelaySeconds: 15
+  periodSeconds: 20
+readinessProbe:
+  httpGet: { path: /health, port: 3001 }
+  initialDelaySeconds: 15
+  periodSeconds: 10
+env:
+  PORT: "3001"
+  USER_SERVICE_URL: "http://user-service:3000"
+  PRODUCT_SERVICE_URL: "http://product-service:8000"
+  ORDER_SERVICE_URL: "http://order-service:8080"
+  PAYMENT_SERVICE_URL: "http://payment-service:8090"
+vault:
+  enabled: false
+serviceAccount:
+  create: true
+  name: "api-gateway-bff"
+  annotations: {}

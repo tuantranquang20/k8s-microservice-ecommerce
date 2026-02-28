@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "user-service.fullname" . }}-config
+  labels:
+    {{- include "user-service.labels" . | nindent 4 }}
+data:
+  # Non-secret environment variables.
+  # Secrets (DB_PASSWORD, JWT_SECRET) are NOT here — they come from
+  # Vault Agent injection or direct env values in values-local.yaml.
+  NODE_ENV:       {{ .Values.env.NODE_ENV | quote }}
+  PORT:           {{ .Values.env.PORT | quote }}
+  DB_HOST:        {{ .Values.env.DB_HOST | quote }}
+  DB_PORT:        {{ .Values.env.DB_PORT | quote }}
+  DB_NAME:        {{ .Values.env.DB_NAME | quote }}
+  DB_USER:        {{ .Values.env.DB_USER | quote }}
+  JWT_EXPIRES_IN: {{ .Values.env.JWT_EXPIRES_IN | quote }}

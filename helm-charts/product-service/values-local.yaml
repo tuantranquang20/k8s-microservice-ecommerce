@@ -1,0 +1,14 @@
+# product-service / k3d local overrides
+replicaCount: 1
+image:
+  repository: "k3d-local-registry:5050/product-service"
+  tag: "latest"
+  pullPolicy: Always
+resources:
+  requests: { cpu: "50m",  memory: "64Mi" }
+  limits:   { cpu: "200m", memory: "128Mi" }
+env:
+  PYTHON_ENV: "development"
+  MONGO_URI: "mongodb://databases-mongodb:27017"
+vault:
+  enabled: false

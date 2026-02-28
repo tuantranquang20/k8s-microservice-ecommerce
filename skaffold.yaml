@@ -1,0 +1,141 @@
+# ============================================================
+# skaffold.yaml — Skaffold configuration for local development
+# ============================================================
+# Skaffold orchestrates the build → push → deploy loop.
+#
+# LEARNING NOTE — Why Skaffold?
+#   - `skaffold dev` watches source files and auto-rebuilds on save
+#   - `skaffold run` does a one-shot deploy (used in deploy-local.sh)
+#   - Handles image tagging and Helm chart rendering automatically
+#   - Much faster inner dev loop than manual docker build + helm upgrade
+
+apiVersion: skaffold/v4beta11
+kind: Config
+metadata:
+  name: ecommerce-local
+
+# ── Build configuration ───────────────────────────────────────
+build:
+  # Use the k3d local registry
+  local:
+    push: true
+    useBuildkit: true   # Enable BuildKit for faster builds + better caching
+
+  artifacts:
+    - image: k3d-local-registry:5050/user-service
+      context: services/user-service
+      docker:
+        dockerfile: Dockerfile
+
+    - image: k3d-local-registry:5050/product-service
+      context: services/product-service
+      docker:
+        dockerfile: Dockerfile
+
+    - image: k3d-local-registry:5050/order-service
+      context: services/order-service
+      docker:
+        dockerfile: Dockerfile
+
+    - image: k3d-local-registry:5050/payment-service
+      context: services/payment-service
+      docker:
+        dockerfile: Dockerfile
+
+    - image: k3d-local-registry:5050/notification-service
+      context: services/notification-service
+      docker:
+        dockerfile: Dockerfile
+
+    - image: k3d-local-registry:5050/api-gateway-bff
+      context: services/api-gateway-bff
+      docker:
+        dockerfile: Dockerfile
+
+    - image: k3d-local-registry:5050/frontend
+      context: services/frontend
+      docker:
+        dockerfile: Dockerfile
+
+# ── Deploy configuration ──────────────────────────────────────
+deploy:
+  helm:
+    releases:
+      # Deploy databases FIRST — services depend on them being ready
+      - name: databases
+        chartPath: helm-charts/databases
+        namespace: ecommerce-dev
+        createNamespace: true
+        valuesFiles:
+          - helm-charts/databases/values.yaml
+          - helm-charts/databases/values-local.yaml
+        wait: true   # Don't start services until databases are ready
+
+      - name: user-service
+        chartPath: helm-charts/user-service
+        namespace: ecommerce-dev
+        valuesFiles:
+          - helm-charts/user-service/values.yaml
+          - helm-charts/user-service/values-local.yaml
+        # imageStrategy auto-replaces the image tag with the one Skaffold just built
+        setValueTemplates:
+          image.repository: "{{.IMAGE_FULLY_QUALIFIED_k3d-local-registry_5050_user-service}}"
+
+      - name: product-service
+        chartPath: helm-charts/product-service
+        namespace: ecommerce-dev
+        valuesFiles:
+          - helm-charts/product-service/values.yaml
+          - helm-charts/product-service/values-local.yaml
+
+      - name: order-service
+        chartPath: helm-charts/order-service
+        namespace: ecommerce-dev
+        valuesFiles:
+          - helm-charts/order-service/values.yaml
+          - helm-charts/order-service/values-local.yaml
+
+      - name: payment-service
+        chartPath: helm-charts/payment-service
+        namespace: ecommerce-dev
+        valuesFiles:
+          - helm-charts/payment-service/values.yaml
+          - helm-charts/payment-service/values-local.yaml
+
+      - name: notification-service
+        chartPath: helm-charts/notification-service
+        namespace: ecommerce-dev
+        valuesFiles:
+          - helm-charts/notification-service/values.yaml
+          - helm-charts/notification-service/values-local.yaml
+
+      - name: api-gateway-bff
+        chartPath: helm-charts/api-gateway-bff
+        namespace: ecommerce-dev
+        valuesFiles:
+          - helm-charts/api-gateway-bff/values.yaml
+          - helm-charts/api-gateway-bff/values-local.yaml
+
+      - name: frontend
+        chartPath: helm-charts/frontend
+        namespace: ecommerce-dev
+        valuesFiles:
+          - helm-charts/frontend/values.yaml
+          - helm-charts/frontend/values-local.yaml
+
+# ── Profiles ──────────────────────────────────────────────────
+profiles:
+  - name: local
+    # Default profile — used by deploy-local.sh
+    # No overrides needed; local values files handle the differences
+
+  - name: dev-watch
+    # Use this for hot-reload during active development
+    build:
+      local:
+        push: true
+    patches:
+      - op: add
+        path: /deploy/helm/flags
+        value:
+          upgrade: ["--atomic", "--timeout=2m"]

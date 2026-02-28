@@ -1,0 +1,6 @@
+apiVersion: v2
+name: product-service
+description: Helm chart for product-service (Python + FastAPI + MongoDB)
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

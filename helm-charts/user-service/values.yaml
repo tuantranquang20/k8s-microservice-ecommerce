@@ -1,0 +1,90 @@
+# =============================================================
+# values.yaml — user-service (production defaults)
+# =============================================================
+# These are the default values used when deploying to production (EKS).
+# Override specific values in values-local.yaml (k3d) or values-prod.yaml.
+
+replicaCount: 2  # Run 2 replicas for high availability in production
+
+image:
+  # ECR URL — set this to your actual AWS account ECR URL
+  # Format: <account-id>.dkr.ecr.<region>.amazonaws.com/<cluster>/<service>
+  repository: "123456789.dkr.ecr.ap-southeast-1.amazonaws.com/ecommerce-eks/user-service"
+  tag: "latest"          # Overridden in CI/CD by the git commit SHA
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP        # Internal only — Kong Gateway handles external routing
+  port: 3000
+
+# Resource limits enforce fair scheduling in the shared cluster.
+# Requests = minimum guaranteed; Limits = hard cap (OOMKilled if exceeded)
+resources:
+  requests:
+    cpu: "100m"          # 0.1 CPU core
+    memory: "128Mi"
+  limits:
+    cpu: "500m"          # 0.5 CPU core max
+    memory: "256Mi"
+
+# Kubernetes probes — tell K8s when the pod is ready to serve traffic
+# and when to restart it.
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 3000
+  initialDelaySeconds: 15  # Give the app time to connect to DB before first check
+  periodSeconds: 20
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 3000
+  initialDelaySeconds: 10
+  periodSeconds: 10
+
+# Environment variables injected into the container.
+# Secrets come from Vault Agent sidecar (not here!).
+env:
+  NODE_ENV: "production"
+  PORT: "3000"
+  DB_HOST: "databases-postgresql"      # Kubernetes service name from databases Helm chart
+  DB_PORT: "5432"
+  DB_NAME: "users"
+  DB_USER: "postgres"
+  JWT_EXPIRES_IN: "7d"
+
+# Vault Agent sidecar annotations — injector reads these to mutate the pod
+vault:
+  enabled: true
+  role: "user-service"   # Maps to the Kubernetes auth role in vault-roles.yaml
+  secrets:
+    - path: "secret/data/user-service/db"
+      key: "password"
+      env: "DB_PASSWORD"
+    - path: "secret/data/user-service/jwt"
+      key: "secret"
+      env: "JWT_SECRET"
+
+# Autoscaling — scales pods based on CPU usage
+autoscaling:
+  enabled: false         # Enable in production when you have metrics server
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+# Node affinity / tolerations — not set by default
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Pod disruption budget — always keep at least 1 pod running during node drains
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+serviceAccount:
+  create: true
+  name: "user-service"   # Vault K8s auth uses this SA name
+  annotations: {}        # Add IRSA annotation here if this service needs AWS access
