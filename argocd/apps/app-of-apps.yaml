@@ -26,7 +26,7 @@ spec:
 
   source:
     # Point at YOUR Git repository
-    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    repoURL: https://github.com/tuantranquang20/k8s-microservice-ecommerce
     targetRevision: HEAD        # Always sync from the latest commit on HEAD
     path: argocd/apps           # Directory containing child Application manifests
 

@@ -1,0 +1,149 @@
+# ============================================================
+# service-monitors.yaml — Prometheus ServiceMonitor CRDs
+# ============================================================
+# LEARNING NOTE — Why ServiceMonitors?
+#   kube-prometheus-stack installs the Prometheus Operator.
+#   The Operator watches for ServiceMonitor CRDs and automatically
+#   configures Prometheus scrape jobs — no manual prometheus.yml editing!
+#
+#   Flow:  ServiceMonitor → Prometheus Operator → prometheus.yml scrape job
+#          → Prometheus scrapes /metrics every 15s → Grafana queries Prometheus
+#
+# REQUIREMENT: Each service must expose GET /metrics (or /health with metrics).
+#   - user-service (Node.js):      prom-client library → GET /metrics
+#   - product-service (FastAPI):   prometheus-fastapi-instrumentator → GET /metrics
+#   - order-service (Go/Gin):      prometheus/client_golang → GET /metrics
+#   - payment-service (Rust/Actix): actix-web-prom → GET /metrics
+#   - notification-service (Node): prom-client → GET /metrics
+#   - api-gateway-bff (FastAPI):   prometheus-fastapi-instrumentator → GET /metrics
+#
+# Apply: kubectl apply -f platform/observability/service-monitors.yaml
+# ============================================================
+
+# ── user-service ──────────────────────────────────────────────
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: user-service
+  namespace: ecommerce-dev
+  labels:
+    # This label is required for Prometheus Operator to discover the monitor
+    # Must match the serviceMonitorSelector in grafana-values.yaml (empty = match all)
+    app.kubernetes.io/name: user-service
+    release: kube-prometheus-stack   # Matches the Helm release name of the stack
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: user-service   # Matches the Service label
+  endpoints:
+    - port: http           # Named port in the Service spec (user-service listens on 3000)
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+  namespaceSelector:
+    matchNames: [ecommerce-dev]
+---
+# ── product-service ───────────────────────────────────────────
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: product-service
+  namespace: ecommerce-dev
+  labels:
+    app.kubernetes.io/name: product-service
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: product-service
+  endpoints:
+    - port: http           # FastAPI service listens on 8000
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+  namespaceSelector:
+    matchNames: [ecommerce-dev]
+---
+# ── order-service ─────────────────────────────────────────────
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: order-service
+  namespace: ecommerce-dev
+  labels:
+    app.kubernetes.io/name: order-service
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: order-service
+  endpoints:
+    - port: http           # Go/Gin service listens on 8080
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+  namespaceSelector:
+    matchNames: [ecommerce-dev]
+---
+# ── payment-service ───────────────────────────────────────────
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: payment-service
+  namespace: ecommerce-dev
+  labels:
+    app.kubernetes.io/name: payment-service
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: payment-service
+  endpoints:
+    - port: http           # Rust/Actix service listens on 8090
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+  namespaceSelector:
+    matchNames: [ecommerce-dev]
+---
+# ── notification-service ──────────────────────────────────────
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: notification-service
+  namespace: ecommerce-dev
+  labels:
+    app.kubernetes.io/name: notification-service
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: notification-service
+  endpoints:
+    - port: http           # Node.js service listens on 3002
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+  namespaceSelector:
+    matchNames: [ecommerce-dev]
+---
+# ── api-gateway-bff ───────────────────────────────────────────
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: api-gateway-bff
+  namespace: ecommerce-dev
+  labels:
+    app.kubernetes.io/name: api-gateway-bff
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api-gateway-bff
+  endpoints:
+    - port: http           # FastAPI BFF listens on 3001
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+  namespaceSelector:
+    matchNames: [ecommerce-dev]

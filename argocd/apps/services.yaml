@@ -21,7 +21,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    repoURL: https://github.com/tuantranquang20/k8s-microservice-ecommerce
     targetRevision: HEAD
     path: helm-charts/user-service
     helm:
@@ -46,11 +46,13 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    repoURL: https://github.com/tuantranquang20/k8s-microservice-ecommerce
     targetRevision: HEAD
     path: helm-charts/user-service
     helm:
-      valueFiles: [values.yaml]   # Production values in staging (full replicas, Vault enabled)
+      # Staging mirrors prod: values-prod.yaml enables Vault, higher replicas, ECR image
+      # image.repository and image.tag are set by CI/CD via --set flags
+      valueFiles: [values.yaml, values-prod.yaml]
   destination:
     server: https://kubernetes.default.svc
     namespace: ecommerce-staging
@@ -70,7 +72,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    repoURL: https://github.com/tuantranquang20/k8s-microservice-ecommerce
     targetRevision: HEAD
     path: helm-charts/product-service
     helm:
@@ -91,11 +93,11 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    repoURL: https://github.com/tuantranquang20/k8s-microservice-ecommerce
     targetRevision: HEAD
     path: helm-charts/product-service
     helm:
-      valueFiles: [values.yaml]
+      valueFiles: [values.yaml, values-prod.yaml]
   destination:
     server: https://kubernetes.default.svc
     namespace: ecommerce-staging
@@ -115,7 +117,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    repoURL: https://github.com/tuantranquang20/k8s-microservice-ecommerce
     targetRevision: HEAD
     path: helm-charts/order-service
     helm:
@@ -136,11 +138,11 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    repoURL: https://github.com/tuantranquang20/k8s-microservice-ecommerce
     targetRevision: HEAD
     path: helm-charts/order-service
     helm:
-      valueFiles: [values.yaml]
+      valueFiles: [values.yaml, values-prod.yaml]
   destination:
     server: https://kubernetes.default.svc
     namespace: ecommerce-staging
@@ -160,7 +162,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    repoURL: https://github.com/tuantranquang20/k8s-microservice-ecommerce
     targetRevision: HEAD
     path: helm-charts/payment-service
     helm:
@@ -181,11 +183,11 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    repoURL: https://github.com/tuantranquang20/k8s-microservice-ecommerce
     targetRevision: HEAD
     path: helm-charts/payment-service
     helm:
-      valueFiles: [values.yaml]
+      valueFiles: [values.yaml, values-prod.yaml]
   destination:
     server: https://kubernetes.default.svc
     namespace: ecommerce-staging
@@ -205,7 +207,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    repoURL: https://github.com/tuantranquang20/k8s-microservice-ecommerce
     targetRevision: HEAD
     path: helm-charts/notification-service
     helm:
@@ -226,11 +228,11 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    repoURL: https://github.com/tuantranquang20/k8s-microservice-ecommerce
     targetRevision: HEAD
     path: helm-charts/notification-service
     helm:
-      valueFiles: [values.yaml]
+      valueFiles: [values.yaml, values-prod.yaml]
   destination:
     server: https://kubernetes.default.svc
     namespace: ecommerce-staging
@@ -250,7 +252,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    repoURL: https://github.com/tuantranquang20/k8s-microservice-ecommerce
     targetRevision: HEAD
     path: helm-charts/api-gateway-bff
     helm:
@@ -271,11 +273,11 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    repoURL: https://github.com/tuantranquang20/k8s-microservice-ecommerce
     targetRevision: HEAD
     path: helm-charts/api-gateway-bff
     helm:
-      valueFiles: [values.yaml]
+      valueFiles: [values.yaml, values-prod.yaml]
   destination:
     server: https://kubernetes.default.svc
     namespace: ecommerce-staging
@@ -295,7 +297,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    repoURL: https://github.com/tuantranquang20/k8s-microservice-ecommerce
     targetRevision: HEAD
     path: helm-charts/frontend
     helm:
@@ -316,11 +318,11 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    repoURL: https://github.com/tuantranquang20/k8s-microservice-ecommerce
     targetRevision: HEAD
     path: helm-charts/frontend
     helm:
-      valueFiles: [values.yaml]
+      valueFiles: [values.yaml, values-prod.yaml]
   destination:
     server: https://kubernetes.default.svc
     namespace: ecommerce-staging
@@ -329,7 +331,7 @@ spec:
     syncOptions: [CreateNamespace=true]
 ---
 # ─────────────────────────────────────────────────────────────
-# databases (Bitnami parent chart)
+# databases (Bitnami parent chart — PostgreSQL + MongoDB + Redis)
 # ─────────────────────────────────────────────────────────────
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -340,7 +342,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_GITHUB_USERNAME/k8s-microservice-ecommerce
+    repoURL: https://github.com/tuantranquang20/k8s-microservice-ecommerce
     targetRevision: HEAD
     path: helm-charts/databases
     helm:
@@ -349,5 +351,30 @@ spec:
     server: https://kubernetes.default.svc
     namespace: ecommerce-dev
   syncPolicy:
-    automated: { prune: false, selfHeal: true }  # prune:false prevents accidental DB deletion!
+    # prune:false is CRITICAL for databases — prevents accidental data deletion
+    # when a resource is removed from Git (e.g. renaming a PVC field)
+    automated: { prune: false, selfHeal: true }
+    syncOptions: [CreateNamespace=true]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: databases-staging
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/tuantranquang20/k8s-microservice-ecommerce
+    targetRevision: HEAD
+    path: helm-charts/databases
+    helm:
+      # Staging uses production values (no architecture:standalone override,
+      # full memory limits, EBS gp3 storage class)
+      valueFiles: [values.yaml]
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecommerce-staging
+  syncPolicy:
+    automated: { prune: false, selfHeal: true }  # Never auto-delete database PVCs!
     syncOptions: [CreateNamespace=true]

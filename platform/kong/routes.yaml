@@ -1,37 +1,35 @@
 # ============================================================
-# routes.yaml — Kubernetes Ingress manifest (Kong class)
+# routes.yaml — Kubernetes Ingress manifests (Kong class)
 # ============================================================
-# This Ingress resource tells Kong how to route traffic based on URL paths.
-#
 # LEARNING NOTE — Traffic flow:
 #   Internet → AWS ALB → Kong Gateway (ClusterIP) → Service → Pod
 #
-# Kong reads this Ingress, creates Route objects in its data plane,
-# and applies KongPlugin CRDs to the configured services.
+# Kong reads these Ingress resources, creates Route objects in its
+# data plane, and applies KongPlugin CRDs based on annotations.
+#
+# IMPORTANT: A KongPlugin is only active on a route when its name
+# appears in the `konghq.com/plugins` annotation. Defining a KongPlugin
+# CRD alone does nothing — it must be referenced here.
 
+# ── Main Ingress: all routes except payment ───────────────────
+# Applies: rate-limiting + request-transformer to all routes.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: ecommerce-routes
   namespace: ecommerce-dev
   annotations:
-    # Tell Kubernetes which Ingress Controller handles this (Kong)
     kubernetes.io/ingress.class: "kong"
-
-    # Attach plugins to this Ingress — comma-separated list of KongPlugin names
     konghq.com/plugins: "rate-limiting,request-transformer"
-
-    # Reference the KongIngress config for upstream settings
     konghq.com/override: "ecommerce-ingress-config"
-
-    # Strip the path prefix before forwarding to upstream
-    # e.g. /api/users/me → /users/me (user-service doesn't have /api prefix)
+    # Strip the /api prefix before forwarding to upstream:
+    # e.g. /api/users/me → /users/me (services don't have /api prefix)
     konghq.com/strip-path: "true"
 spec:
   rules:
     - http:
         paths:
-          # ── BFF / Aggregation (general /api/* goes to BFF first) ────
+          # ── BFF / Aggregation ────────────────────────────────
           - path: /api
             pathType: Prefix
             backend:
@@ -39,7 +37,7 @@ spec:
                 name: api-gateway-bff
                 port: { number: 3001 }
 
-          # ── User Service ────────────────────────────────────────────
+          # ── User Service ─────────────────────────────────────
           - path: /api/users
             pathType: Prefix
             backend:
@@ -47,7 +45,7 @@ spec:
                 name: user-service
                 port: { number: 3000 }
 
-          # ── Auth (handled by user-service) ──────────────────────────
+          # ── Auth (handled by user-service) ───────────────────
           - path: /api/auth
             pathType: Prefix
             backend:
@@ -55,7 +53,7 @@ spec:
                 name: user-service
                 port: { number: 3000 }
 
-          # ── Product Service ─────────────────────────────────────────
+          # ── Product Service ──────────────────────────────────
           - path: /api/products
             pathType: Prefix
             backend:
@@ -63,7 +61,7 @@ spec:
                 name: product-service
                 port: { number: 8000 }
 
-          # ── Order Service ───────────────────────────────────────────
+          # ── Order Service ────────────────────────────────────
           - path: /api/orders
             pathType: Prefix
             backend:
@@ -71,18 +69,39 @@ spec:
                 name: order-service
                 port: { number: 8080 }
 
-          # ── Payment Service (key-auth also applied here) ─────────────
-          - path: /api/payments
-            pathType: Prefix
-            backend:
-              service:
-                name: payment-service
-                port: { number: 8090 }
-
-          # ── Frontend (catch-all) ────────────────────────────────────
+          # ── Frontend (catch-all) ─────────────────────────────
           - path: /
             pathType: Prefix
             backend:
               service:
                 name: frontend
                 port: { number: 80 }
+---
+# ── Payment Ingress: key-auth required ───────────────────────
+# LEARNING NOTE: Payment endpoints require an API key in addition to
+# the rate-limiting that applies globally. We use a separate Ingress
+# resource so we can apply a different plugin set.
+#
+# Clients must include: X-Api-Key: <key> (or ?apikey=<key>)
+# Keys are created via: kubectl apply -f (KongConsumer + KongCredential)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ecommerce-payment-routes
+  namespace: ecommerce-dev
+  annotations:
+    kubernetes.io/ingress.class: "kong"
+    # key-auth in addition to the global plugins
+    konghq.com/plugins: "rate-limiting,request-transformer,key-auth"
+    konghq.com/override: "ecommerce-ingress-config"
+    konghq.com/strip-path: "true"
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /api/payments
+            pathType: Prefix
+            backend:
+              service:
+                name: payment-service
+                port: { number: 8090 }
