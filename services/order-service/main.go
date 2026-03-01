@@ -19,6 +19,8 @@ import (
 	"strconv"
 	"time"
 
+	"context"
+
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/joho/godotenv"
@@ -26,7 +28,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
-	"context"
 )
 
 // ── Global instances ──────────────────────────────────────────
@@ -67,6 +68,7 @@ type CreateOrderRequest struct {
 func jwtMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
+		log.Printf("AUTH HEADER: '%s'", authHeader)
 		if authHeader == "" || len(authHeader) < 8 {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing token"})
 			return
@@ -79,6 +81,14 @@ func jwtMiddleware() gin.HandlerFunc {
 			}
 			return []byte(secret), nil
 		})
+
+		if err != nil || !token.Valid {
+			log.Printf("JWT error: %v | secret_len: %d | token_prefix: %s",
+				err, len(secret), tokenStr[:min(20, len(tokenStr))])
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+			return
+		}
+
 		if err != nil || !token.Valid {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 			return
@@ -172,10 +182,10 @@ func getOrder(c *gin.Context) {
 // Runs in a goroutine so it doesn't block the HTTP response.
 func publishOrderCreated(order Order) {
 	payload, _ := json.Marshal(map[string]interface{}{
-		"event":    "order.created",
-		"order_id": order.ID,
-		"user_id":  order.UserID,
-		"product_id": order.ProductID,
+		"event":       "order.created",
+		"order_id":    order.ID,
+		"user_id":     order.UserID,
+		"product_id":  order.ProductID,
 		"total_price": order.TotalPrice,
 	})
 	ctx := context.Background()

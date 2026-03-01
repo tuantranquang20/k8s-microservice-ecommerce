@@ -19,7 +19,7 @@ build:
   # Use the k3d local registry
   local:
     push: true
-    useBuildkit: true   # Enable BuildKit for faster builds + better caching
+    useBuildkit: true # Enable BuildKit for faster builds + better caching
 
   artifacts:
     - image: k3d-local-registry:5050/user-service
@@ -60,26 +60,25 @@ build:
 # ── Deploy configuration ──────────────────────────────────────
 deploy:
   helm:
+    flags:
+      install: ["--timeout=10m0s", "--wait"]
+      upgrade: ["--timeout=10m0s", "--wait"]
     releases:
-      # Deploy databases FIRST — services depend on them being ready
-      - name: databases
-        chartPath: helm-charts/databases
-        namespace: ecommerce-dev
-        createNamespace: true
-        valuesFiles:
-          - helm-charts/databases/values.yaml
-          - helm-charts/databases/values-local.yaml
-        wait: true   # Don't start services until databases are ready
+      # NOTE: The databases (postgresql/mongodb/redis) chart is intentionally
+      # NOT listed here. It is installed separately in deploy-local.sh with a
+      # 20-minute timeout because Bitnami image pulls + PVC provisioning far
+      # exceed skaffold's global 10-minute limit.
+      # Skaffold only manages the 7 application service charts below.
 
       - name: user-service
         chartPath: helm-charts/user-service
         namespace: ecommerce-dev
+        createNamespace: true
         valuesFiles:
           - helm-charts/user-service/values.yaml
           - helm-charts/user-service/values-local.yaml
-        # imageStrategy auto-replaces the image tag with the one Skaffold just built
-        setValueTemplates:
-          image.repository: "{{.IMAGE_FULLY_QUALIFIED_k3d-local-registry_5050_user-service}}"
+        # Image repo/tag come from values-local.yaml (k3d-local-registry:5050/user-service:latest)
+        # No setValueTemplates needed — deploy-local.sh pre-pushes all images before skaffold runs
 
       - name: product-service
         chartPath: helm-charts/product-service

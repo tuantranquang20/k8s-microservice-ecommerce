@@ -1,0 +1,55 @@
+# ============================================================
+# mtls-strict.yaml — PeerAuthentication: STRICT mTLS for all services
+# ============================================================
+# LEARNING NOTE — What mTLS does:
+#
+# Without Istio: Pod A → Pod B in plaintext. Anyone on the node or
+# with access to the network can read the traffic.
+#
+# With Istio mTLS:
+#   1. Both sides (A and B) present X.509 certificates issued by Istio's
+#      built-in CA (istiod). These certs are rotated ~every 24h.
+#   2. The TLS handshake mutually authenticates BOTH sides:
+#      "I'm order-service/SA:order-service" ←→ "I'm product-service/SA:product-service"
+#   3. The connection is encrypted end-to-end (TLS 1.3).
+#
+# Modes:
+#   PERMISSIVE → accept both plaintext AND mTLS (migration mode)
+#   STRICT     → reject ALL plaintext (what we use in prod)
+#
+# The mesh-wide policy below applies to ALL services in the mesh.
+# You can override per-namespace or per-workload with a more specific
+# PeerAuthentication resource (more specific = higher priority).
+
+# ── Mesh-wide STRICT mTLS ─────────────────────────────────────
+# Applying in the istio-system namespace with no workloadSelector
+# makes this the MESH-WIDE default policy.
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default-strict-mtls
+  namespace: istio-system
+spec:
+  mtls:
+    mode: STRICT   # Reject any plaintext traffic within the mesh
+---
+# ── Namespace-level confirmation (belt + suspenders) ─────────
+# Re-stating STRICT at the namespace level ensures that even if
+# the mesh-wide policy is accidentally changed, ecommerce-dev stays strict.
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: strict-mtls
+  namespace: ecommerce-dev
+spec:
+  mtls:
+    mode: STRICT
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: strict-mtls
+  namespace: ecommerce-staging
+spec:
+  mtls:
+    mode: STRICT

@@ -1,0 +1,32 @@
+# =============================================================
+# values-prod.yaml — notification-service (EKS / Production)
+# =============================================================
+# notification-service is a Redis Pub/Sub subscriber — single replica
+# by design to avoid double-processing events. Scale carefully.
+replicaCount: 1   # Keep at 1 to prevent duplicate event processing
+
+image:
+  repository: ""   # Set by CI/CD to ECR URL
+  tag: ""          # Set by CI/CD to git SHA
+  pullPolicy: IfNotPresent
+
+resources:
+  requests:
+    cpu: "50m"
+    memory: "64Mi"
+  limits:
+    cpu: "200m"
+    memory: "128Mi"
+
+env:
+  NODE_ENV: "production"
+
+vault:
+  enabled: true
+
+autoscaling:
+  enabled: false   # Intentionally disabled — single consumer pattern
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 0   # Allow full drain during updates (brief gap acceptable)

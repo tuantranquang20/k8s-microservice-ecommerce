@@ -37,8 +37,10 @@ COPY --from=builder /app/order-service .
 
 EXPOSE 8080
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD ["/app/order-service", "-healthcheck"]
+# wget is available in distroless/static via busybox; use /health endpoint instead
+# of a non-existent -healthcheck binary flag
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD ["/bin/sh", "-c", "wget -qO- http://localhost:8080/health || exit 1"]
 
 # distroless images use uid 65532 (nonroot) by default
 USER nonroot:nonroot

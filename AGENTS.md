@@ -10,8 +10,9 @@ Built for hands-on learning of cloud-native patterns.
 - IaC: Terraform with LOCAL state backend (NO S3, NO DynamoDB)
 - GitOps: GitHub Actions + Helm + ArgoCD (App-of-Apps pattern)
 - API Gateway: Kong Gateway
+- Service Mesh: Istio (mTLS STRICT, canary traffic split, circuit breaker, Kiali + Jaeger)
 - Secrets: HashiCorp Vault with Kubernetes Auth
-- Observability: Prometheus + Grafana + (future) Tempo + Loki
+- Observability: Prometheus + Grafana + Jaeger distributed tracing
 
 ## Tech Stack per Service
 - user-service: Node.js + Express + PostgreSQL
@@ -29,6 +30,7 @@ Built for hands-on learning of cloud-native patterns.
 /platform/kong/              # Kong plugins and config
 /platform/vault/             # Vault policies and roles
 /platform/observability/     # Prometheus rules, Grafana dashboards
+/platform/istio/             # Istio mesh config: mTLS, canary, circuit breaker, Kiali, Jaeger
 /scripts/                    # Shell scripts (NO Makefile)
 
 ## Essential Commands
@@ -49,7 +51,10 @@ skaffold run --profile=local   # one-time deploy
 # Platform
 ./scripts/argocd-bootstrap.sh  # install ArgoCD + register apps
 ./scripts/vault-setup.sh       # configure Vault auth + secrets
+./scripts/istio-install.sh     # install Istio + Kiali + Jaeger via istioctl
 ./scripts/port-forward.sh      # expose Grafana, ArgoCD, Kong UI
+istioctl dashboard kiali       # open Kiali mesh graph
+istioctl dashboard jaeger      # open Jaeger trace UI
 
 ## Coding Conventions
 - All shell scripts use `set -e` at the top
@@ -78,11 +83,11 @@ skaffold run --profile=local   # one-time deploy
 | Vault mode     | dev mode                       | HA with Raft storage     |
 
 ## Current Status
-- [ ] Infrastructure: Terraform EKS + VPC
-- [ ] Services: all 6 services with Dockerfile
-- [ ] Helm charts: all services
-- [ ] CI/CD: GitHub Actions + ArgoCD
-- [ ] Platform: Kong, Vault, Prometheus/Grafana
-- [ ] Service Mesh: Istio (planned Phase 2)
-- [ ] Distributed Tracing: Tempo + OpenTelemetry (planned Phase 2)
+- [x] Infrastructure: Terraform EKS + VPC
+- [x] Services: all 6 services + frontend with Dockerfile
+- [x] Helm charts: all services + databases (Bitnami)
+- [x] CI/CD: GitHub Actions (7 services + Terraform) + ArgoCD App-of-Apps
+- [x] Platform: Kong, Vault, Prometheus/Grafana
+- [x] Service Mesh: Istio — mTLS STRICT, canary 90/10 (order-service), circuit breaker (payment-service), Kiali + Jaeger
+- [ ] Distributed Tracing: OpenTelemetry SDK in app code (B3 header propagation) — planned
 - [ ] Kafka: replace Redis Pub/Sub (planned Phase 3)

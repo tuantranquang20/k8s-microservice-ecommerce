@@ -1,0 +1,30 @@
+# =============================================================
+# values-prod.yaml — api-gateway-bff (EKS / Production)
+# =============================================================
+replicaCount: 2
+
+image:
+  repository: ""   # Set by CI/CD to ECR URL
+  tag: ""          # Set by CI/CD to git SHA
+  pullPolicy: IfNotPresent
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "256Mi"
+
+vault:
+  enabled: true
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1

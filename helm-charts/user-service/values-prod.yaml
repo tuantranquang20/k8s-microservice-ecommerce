@@ -1,0 +1,50 @@
+# =============================================================
+# values-prod.yaml — user-service (EKS / Production overrides)
+# =============================================================
+# Used by ArgoCD for staging and production deployments on EKS.
+# Merges ON TOP OF values.yaml (keeps all defaults, overrides below).
+#
+# Key differences from values-local.yaml:
+#   - Image pulled from ECR (set by CI/CD via --set image.tag=<git-sha>)
+#   - Vault enabled: secrets injected by Vault Agent sidecar
+#   - Higher replicas and resource limits
+#   - HPA and PodDisruptionBudget enabled
+#   - EBS gp3 storage class
+
+replicaCount: 2   # 2 replicas for HA; HPA scales further based on CPU
+
+image:
+  # ECR URL is set per-environment by CI/CD pipeline:
+  #   helm upgrade --set image.repository=<AWS_ACCOUNT>.dkr.ecr.<REGION>.amazonaws.com/user-service \
+  #                --set image.tag=<GIT_SHA>
+  repository: ""   # Set by CI/CD — see .github/workflows/ci-user-service.yml
+  tag: ""          # Set by CI/CD to the git commit SHA (immutable tag)
+  pullPolicy: IfNotPresent   # Avoid redundant pulls — ECR images are immutable per SHA
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "256Mi"
+
+env:
+  NODE_ENV: "production"
+  DB_HOST: "databases-postgresql"
+  # DB_PASSWORD and JWT_SECRET are NOT set here — they come from Vault Agent injection
+
+vault:
+  enabled: true   # Vault Agent Injector sidecar enabled in production
+  # The pod annotation vault.hashicorp.com/role: user-service maps to
+  # the Kubernetes auth role defined in platform/vault/vault-roles.yaml
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1   # Always keep at least 1 replica during rolling updates

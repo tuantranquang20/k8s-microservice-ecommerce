@@ -54,6 +54,17 @@ else
 fi
 
 echo ""
+echo "==> [5/5] Downloading Bitnami Helm sub-chart dependencies..."
+# The databases/ parent chart depends on postgresql, mongodb, redis from Bitnami.
+# helm dependency update downloads the tarballs into helm-charts/databases/charts/
+# Without this, 'helm install databases' fails with "missing in charts/ directory"
+command -v helm >/dev/null 2>&1 || { echo "ERROR: helm not found. Install from https://helm.sh"; exit 1; }
+helm repo add bitnami https://charts.bitnami.com/bitnami 2>/dev/null || true
+helm repo update bitnami
+helm dependency update helm-charts/databases
+echo "    Bitnami sub-charts downloaded"
+
+echo ""
 echo "============================================================"
 echo "  Local setup complete!"
 echo ""
@@ -62,5 +73,6 @@ echo "  Cluster:   ecommerce-local"
 echo ""
 echo "  Next steps:"
 echo "    1. Update kubeconfig: kubectl config use-context k3d-ecommerce-local"
-echo "    2. Build & deploy:    ./scripts/deploy-local.sh"
+echo "    2. Download Bitnami sub-charts:   helm dependency update helm-charts/databases"
+echo "    3. Build & deploy:                ./scripts/deploy-local.sh"
 echo "============================================================"

@@ -1,0 +1,27 @@
+# =============================================================
+# values-prod.yaml — frontend (EKS / Production)
+# =============================================================
+replicaCount: 2
+
+image:
+  repository: ""   # Set by CI/CD to ECR URL
+  tag: ""          # Set by CI/CD to git SHA
+  pullPolicy: IfNotPresent
+
+resources:
+  requests:
+    cpu: "50m"
+    memory: "32Mi"
+  limits:
+    cpu: "200m"
+    memory: "64Mi"
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1

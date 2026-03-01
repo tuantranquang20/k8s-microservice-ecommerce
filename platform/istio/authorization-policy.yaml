@@ -1,0 +1,103 @@
+# ============================================================
+# authorization-policy.yaml — Istio AuthorizationPolicies (RBAC)
+# ============================================================
+# LEARNING NOTE — Istio AuthorizationPolicy = L7 RBAC for the mesh.
+#
+# With STRICT mTLS, every connection carries a verified SPIFFE identity
+# encoded in the peer certificate. The identity format is:
+#   spiffe://cluster.local/ns/<namespace>/sa/<serviceaccount>
+#
+# AuthorizationPolicy uses these identities to say:
+#   "ALLOW payment-service to be called BY order-service ONLY".
+#
+# This is "zero-trust" networking:
+#   - Default DENY all (deny-all policy below)
+#   - Then explicitly ALLOW only the connections that should exist
+#
+# Without this: any compromised pod in the cluster could call payment-service.
+# With this: even a compromised pod cannot reach payment-service unless
+# its ServiceAccount is in the allow-list.
+
+# ── Default DENY all inbound traffic in ecommerce-dev ─────────
+# An empty AuthorizationPolicy with no rules = DENY ALL.
+# Apply this first, then add explicit ALLOW policies.
+# NOTE: This will break your services until you add the ALLOW policies below!
+# Comment out in dev if you want permissive mode first.
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all
+  namespace: ecommerce-dev
+spec: {}
+  # Empty spec = deny all. Any pod without an explicit ALLOW policy
+  # will receive a 403 Forbidden from Istio.
+---
+# ── ALLOW: order-service may call payment-service ─────────────
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: payment-service-allow
+  namespace: ecommerce-dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: payment-service
+  action: ALLOW
+  rules:
+    - from:
+        # Only order-service's ServiceAccount can initiate calls to payment-service
+        - source:
+            principals:
+              - "cluster.local/ns/ecommerce-dev/sa/order-service"
+      to:
+        - operation:
+            methods: ["POST", "GET"]
+            paths: ["/payments", "/payments/*"]
+---
+# ── ALLOW: api-gateway-bff may call all services ──────────────
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: bff-to-services-allow
+  namespace: ecommerce-dev
+spec:
+  # No selector = applies to ALL workloads in namespace
+  # (allow BFF to reach any service)
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "cluster.local/ns/ecommerce-dev/sa/api-gateway-bff"
+---
+# ── ALLOW: Kong (ingress) may call BFF ───────────────────────
+# Kong runs in the kong namespace; its SA identity is used here.
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: kong-to-bff-allow
+  namespace: ecommerce-dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api-gateway-bff
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            namespaces: ["kong"]
+---
+# ── ALLOW: All services to be called by services in same namespace ──
+# This is the permissive fallback for intra-namespace traffic
+# during the LEARNING phase. In production, make each policy specific.
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-same-namespace
+  namespace: ecommerce-dev
+spec:
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            namespaces: ["ecommerce-dev"]

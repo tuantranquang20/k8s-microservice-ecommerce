@@ -1,0 +1,35 @@
+# =============================================================
+# values-prod.yaml — product-service (EKS / Production)
+# =============================================================
+replicaCount: 2
+
+image:
+  repository: ""   # Set by CI/CD to ECR URL
+  tag: ""          # Set by CI/CD to git SHA
+  pullPolicy: IfNotPresent
+
+resources:
+  requests:
+    cpu: "150m"
+    memory: "192Mi"
+  limits:
+    cpu: "500m"
+    memory: "384Mi"
+
+env:
+  PYTHON_ENV: "production"
+  MONGO_URI: "mongodb://databases-mongodb:27017"
+  # Credentials injected by Vault Agent when vault.enabled=true
+
+vault:
+  enabled: true
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1

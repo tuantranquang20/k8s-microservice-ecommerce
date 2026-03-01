@@ -1,0 +1,81 @@
+# ============================================================
+# default-destinationrules.yaml — Baseline DestinationRules for all services
+# ============================================================
+# LEARNING NOTE — Why DestinationRules are needed even without subsets:
+#
+# When you enable STRICT mTLS, ALL connections must use TLS.
+# DestinationRule's trafficPolicy.tls.mode tells the CLIENT SIDE
+# (Envoy proxy) to originate mTLS when speaking to the host.
+#
+# Without this: client Envoy sends plaintext, server Envoy expects TLS → 503.
+# With this: client Envoy upgrades the connection to mTLS automatically.
+#
+# The mesh-wide DestinationRule below applies ISTIO_MUTUAL to every service.
+# ISTIO_MUTUAL = use the Istio-provisioned X.509 certificate (not your own cert).
+
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: user-service
+  namespace: ecommerce-dev
+spec:
+  host: user-service
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL   # Client-side mTLS using Istio certificate
+    connectionPool:
+      tcp:  { maxConnections: 50, connectTimeout: 5s }
+      http: { http1MaxPendingRequests: 25, http2MaxRequests: 50 }
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: product-service
+  namespace: ecommerce-dev
+spec:
+  host: product-service
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+    connectionPool:
+      tcp:  { maxConnections: 50, connectTimeout: 5s }
+      http: { http1MaxPendingRequests: 25, http2MaxRequests: 50 }
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: notification-service
+  namespace: ecommerce-dev
+spec:
+  host: notification-service
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+    connectionPool:
+      tcp:  { maxConnections: 20, connectTimeout: 5s }
+      http: { http1MaxPendingRequests: 10, http2MaxRequests: 20 }
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: api-gateway-bff
+  namespace: ecommerce-dev
+spec:
+  host: api-gateway-bff
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+    connectionPool:
+      tcp:  { maxConnections: 100, connectTimeout: 5s }
+      http: { http1MaxPendingRequests: 50, http2MaxRequests: 100 }
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: frontend
+  namespace: ecommerce-dev
+spec:
+  host: frontend
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL

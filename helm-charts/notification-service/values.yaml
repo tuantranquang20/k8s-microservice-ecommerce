@@ -24,8 +24,16 @@ env:
   REDIS_HOST: "databases-redis-master"
   REDIS_PORT: "6379"
 vault:
-  enabled: false   # No secrets needed — Redis has no auth in this setup
+  enabled: false  # Redis has no auth in local dev — enable in production
+  role: "notification-service"
+  secrets:
+    - path: "secret/data/notification-service/redis"
+      key: "password"
+      env: "REDIS_PASSWORD"
 serviceAccount:
   create: true
   name: "notification-service"
   annotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

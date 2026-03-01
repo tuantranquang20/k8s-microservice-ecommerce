@@ -1,0 +1,51 @@
+# ============================================================
+# jaeger-config.yaml — Jaeger all-in-one tracing backend
+# ============================================================
+# LEARNING NOTE — How distributed tracing flows with Istio + Jaeger:
+#
+# 1. Request enters via Kong/Istio Gateway → Envoy adds a trace header:
+#      x-b3-traceid: <16-hex-char ID>  (identifies the whole request chain)
+#      x-b3-spanid:  <8-hex-char ID>   (identifies this specific hop)
+#
+# 2. Your application code MUST PROPAGATE these headers to upstream calls.
+#    If app code doesn't forward B3 headers, Envoy sees the trace as
+#    disconnected hops and Jaeger shows a broken graph.
+#    Example in api-gateway-bff (httpx):
+#      headers = {k: v for k, v in request.headers.items()
+#                 if k.lower().startswith('x-b3-') or k.lower() == 'x-request-id'}
+#      await client.get(upstream_url, headers=headers)
+#
+# 3. Each Envoy sidecar sends span data to Jaeger Collector on port 9411
+#    (Zipkin-compatible format, configured in IstioOperator).
+#
+# 4. Jaeger stores spans in memory (all-in-one) and serves the UI on :16686.
+#
+# Production difference: Use Jaeger with Elasticsearch or Cassandra backend.
+# The all-in-one deployment below is memory-only — data lost on restart.
+
+# Jaeger is deployed as an Istio addon (applied by istio-install.sh).
+# This config is for documentation + any custom overwrites.
+#
+# To access Jaeger UI:
+#   istioctl dashboard jaeger
+#   OR
+#   kubectl port-forward svc/jaeger-query -n istio-system 16686:16686
+#   Then open: http://localhost:16686
+
+# ── Service for Jaeger components ─────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-collector
+  namespace: istio-system
+  labels:
+    app: jaeger
+spec:
+  ports:
+    - name: jaeger-collector-zipkin
+      port: 9411
+      targetPort: 9411
+      protocol: TCP
+  selector:
+    app: jaeger
+  type: ClusterIP

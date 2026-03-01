@@ -24,7 +24,14 @@ env:
 vault:
   enabled: true
   role: "payment-service"
+  secrets:
+    - path: "secret/data/payment-service/jwt"
+      key: "secret"
+      env: "JWT_SECRET"
 serviceAccount:
   create: true
   name: "payment-service"
   annotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

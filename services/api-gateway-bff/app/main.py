@@ -126,7 +126,7 @@ async def dashboard(request: Request):
 
 @app.api_route("/api/users/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 async def proxy_users(path: str, request: Request):
-    return await _proxy(request, f"{settings.USER_SERVICE_URL}/{path}")
+    return await _proxy(request, f"{settings.USER_SERVICE_URL}/users/{path}")
 
 @app.api_route("/api/products/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 async def proxy_products(path: str, request: Request):

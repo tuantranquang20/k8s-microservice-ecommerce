@@ -1,0 +1,55 @@
+# ============================================================
+# kiali-config.yaml — Kiali ConfigMap for the service mesh dashboard
+# ============================================================
+# LEARNING NOTE — What Kiali does:
+#
+# Kiali reads Istio's telemetry (Prometheus metrics + Jaeger traces)
+# and renders a REAL-TIME graph of your service mesh. You can see:
+#   - Which services are calling which (traffic topology)
+#   - Request rates, error rates, and latencies per edge
+#   - Whether mTLS is active on each connection (green lock icon)
+#   - Canary traffic distribution in action
+#   - Circuit breaker state (open/closed) per pod
+#
+# Install: applied automatically by istio-install.sh from Istio addons
+# Access:  istioctl dashboard kiali
+#          kubectl port-forward svc/kiali -n istio-system 20001:20001
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kiali
+  namespace: istio-system
+data:
+  config.yaml: |
+    auth:
+      openid: {}
+      openshift: {}
+      # For learning: disable auth (not for production!)
+      strategy: anonymous
+
+    deployment:
+      accessible_namespaces:
+        - ecommerce-dev
+        - ecommerce-staging
+      namespace: istio-system
+
+    external_services:
+      # Tell Kiali where Prometheus and Jaeger are
+      prometheus:
+        url: "http://prometheus.istio-system:9090"
+      tracing:
+        enabled: true
+        namespace_selector: true
+        use_grpc: false
+        in_cluster_url: "http://jaeger-query.istio-system:16686"
+        url: "http://jaeger-query.istio-system:16686"
+
+    identity: {}
+
+    istio_namespace: istio-system
+
+    server:
+      port: 20001
+      web_root: "/kiali"
+      web_schema: http

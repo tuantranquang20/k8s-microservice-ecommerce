@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "api-gateway-bff.fullname" . }}-config
+  labels:
+    {{- include "api-gateway-bff.labels" . | nindent 4 }}
+data:
+  PORT:                {{ .Values.env.PORT | quote }}
+  USER_SERVICE_URL:    {{ .Values.env.USER_SERVICE_URL | quote }}
+  PRODUCT_SERVICE_URL: {{ .Values.env.PRODUCT_SERVICE_URL | quote }}
+  ORDER_SERVICE_URL:   {{ .Values.env.ORDER_SERVICE_URL | quote }}
+  PAYMENT_SERVICE_URL: {{ .Values.env.PAYMENT_SERVICE_URL | quote }}

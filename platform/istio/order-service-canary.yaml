@@ -1,0 +1,97 @@
+# ============================================================
+# order-service-canary.yaml — VirtualService + DestinationRule
+#                             90/10 canary traffic split
+# ============================================================
+# LEARNING NOTE — Canary deployments with Istio:
+#
+# WITHOUT Istio: canary = deploy new version as separate Deployment,
+# then adjust replica counts to approximate the desired traffic split.
+# Problem: k8s routes based on pod count, not real percentages.
+# 10% traffic with 1 pod means you need 9 pods on v1 for 1 on v2.
+# With 2 pods on v1 and 1 on v2, you get 33% not 10%.
+#
+# WITH Istio: traffic split is EXACT, enforced at the Envoy proxy layer
+# INDEPENDENT of pod count. You can have 10% to v2 with just 1 pod each.
+#
+# How it works:
+#   DestinationRule → defines subsets (v1, v2) by pod label selector
+#   VirtualService  → routes X% to subset-v1, Y% to subset-v2
+#
+# Required: order-service pods must have the label "version: v1" or "version: v2"
+# Add to your Helm Deployment template:
+#   labels:
+#     version: "v1"   # change to "v2" for the canary Deployment
+
+# ── Step 1: DestinationRule — define subsets ─────────────────
+# A "subset" is a named grouping of pods matched by labels.
+# Envoy uses these to build separate upstream clusters.
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: order-service
+  namespace: ecommerce-dev
+spec:
+  # Matches the Kubernetes Service name
+  host: order-service
+
+  # ── Subset definitions ──────────────────────────────────────
+  subsets:
+    - name: v1
+      labels:
+        version: "v1"   # Matches pods with label version=v1 (current stable)
+    - name: v2
+      labels:
+        version: "v2"   # Matches pods with label version=v2 (canary)
+
+  # ── Connection pool (applies to all subsets unless overridden) ──
+  # Limits concurrent connections to prevent one slow backend from
+  # monopolising connection pool resources.
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 50
+        http2MaxRequests: 100
+---
+# ── Step 2: VirtualService — define the traffic split ────────
+# A VirtualService is like an "L7 routing rule" applied at the Envoy proxy.
+# It intercepts all traffic headed for "order-service" and applies
+# the weighted routing rules BEFORE forwarding to the real pods.
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: order-service-canary
+  namespace: ecommerce-dev
+spec:
+  # Which Kubernetes Service hostname this VS applies to
+  hosts:
+    - order-service
+
+  http:
+    - name: canary-split
+      # LEARNING: match is optional here — applies to ALL http traffic.
+      # You could add match rules to only canary specific headers:
+      #   match:
+      #     - headers:
+      #         x-canary:
+      #           exact: "true"
+      route:
+        - destination:
+            host: order-service
+            subset: v1          # Stable version
+          weight: 90            # 90% of traffic → v1
+
+        - destination:
+            host: order-service
+            subset: v2          # Canary version
+          weight: 10            # 10% of traffic → v2
+
+      # Timeout for this route (overrides DestinationRule timeout)
+      timeout: 30s
+
+      # Retry policy: if v2 returns 503, retry on v1 automatically
+      retries:
+        attempts: 3
+        perTryTimeout: 10s
+        retryOn: "5xx,reset,connect-failure"

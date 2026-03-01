@@ -1,0 +1,44 @@
+# ============================================================
+# namespace-injection.yaml — Enable Istio sidecar injection
+# ============================================================
+# LEARNING NOTE — How sidecar injection works:
+#
+#   1. Istio installs a MutatingWebhookConfiguration on the cluster.
+#   2. When a pod is created, the API server calls Istio's webhook.
+#   3. The webhook MUTATES the pod spec — it injects an "istio-proxy"
+#      (Envoy) sidecar container and an "istio-init" init container.
+#   4. All inbound + outbound traffic for the pod now flows through
+#      the Envoy sidecar (iptables rules redirect it transparently).
+#
+# The label "istio-injection=enabled" on the namespace tells Istio's
+# webhook to inject sidecars into ALL new pods in that namespace.
+# Pods already running must be restarted (rollout restart).
+#
+# ACTIVATION STEPS (run after istio-install.sh):
+#   kubectl label namespace ecommerce-dev     istio-injection=enabled
+#   kubectl label namespace ecommerce-staging istio-injection=enabled
+#   kubectl rollout restart deployment -n ecommerce-dev
+#
+# To verify injection is working:
+#   kubectl get pods -n ecommerce-dev
+#   → Each pod should show 2/2 or 3/3 containers (app + istio-proxy)
+
+# ── Namespace labels (declarative alternative to kubectl label) ─
+# If you prefer declaring namespace config in Git:
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ecommerce-dev
+  labels:
+    # This is THE label Istio checks for sidecar injection
+    istio-injection: "enabled"
+    # Identifies traffic as part of our mesh for Kiali graph
+    topology.istio.io/network: "ecommerce"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ecommerce-staging
+  labels:
+    istio-injection: "enabled"
+    topology.istio.io/network: "ecommerce"

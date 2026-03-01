@@ -11,5 +11,8 @@ env:
   GIN_MODE: "debug"
   DB_PASSWORD: "changeme"
   REDIS_PASSWORD: ""
+  # Must match user-service JWT_SECRET exactly — all services share the
+  # same symmetric key to sign and verify tokens (HMAC-SHA256)
+  JWT_SECRET: "local-dev-secret-not-for-prod"
 vault:
   enabled: false

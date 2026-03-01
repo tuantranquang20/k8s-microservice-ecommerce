@@ -1,0 +1,128 @@
+# ============================================================
+# vault-roles.yaml — Vault Kubernetes Auth Roles (declarative reference)
+# ============================================================
+# This file is the DECLARATIVE definition of the Vault Kubernetes auth
+# roles that vault-setup.sh creates imperatively with `vault write`.
+#
+# It is NOT applied with kubectl — Vault is not a K8s CR controller.
+# Use it as:
+#   1. Documentation / GitOps audit trail of what vault-setup.sh creates
+#   2. Direct input to `vault write` commands (see vault-setup.sh)
+#
+# CONCEPT — Vault Kubernetes Auth:
+#   K8s ServiceAccount token → Vault /auth/kubernetes/login → Vault token
+#   The role binds:
+#     - Which ServiceAccount(s) are allowed to log in
+#     - Which namespace(s) those SAs must be in
+#     - Which Vault policies the resulting token receives
+#     - How long the token lives (ttl)
+#
+# Vault Agent Injector (enabled in vault-values.yaml) automatically:
+#   1. Reads pod annotations (vault.hashicorp.com/role: "user-service")
+#   2. Logs in to Vault using the pod's projected ServiceAccount token
+#   3. Renders secrets into a /vault/secrets/ tmpfs volume
+#   4. Refreshes secrets before the lease expires
+#
+# To apply manually:
+#   export VAULT_ADDR=http://127.0.0.1:8200
+#   export VAULT_TOKEN=root
+#   vault write auth/kubernetes/role/<name> \
+#     bound_service_account_names=<sa> \
+#     bound_service_account_namespaces=<ns> \
+#     policies=<policy> \
+#     ttl=<ttl>
+# ============================================================
+
+roles:
+
+  # ── user-service ──────────────────────────────────────────
+  # user-service reads DB password + JWT signing secret from Vault.
+  # Policies: user-service (read secret/data/user-service/*)
+  - name: user-service
+    bound_service_account_names:
+      - user-service          # Must match spec.serviceAccountName in the Deployment
+    bound_service_account_namespaces:
+      - ecommerce-dev
+      - ecommerce-staging
+      - ecommerce-prod
+    policies:
+      - user-service          # Defined in vault-policies.hcl
+    ttl: 1h
+    # vault-setup.sh command:
+    # vault write auth/kubernetes/role/user-service \
+    #   bound_service_account_names=user-service \
+    #   bound_service_account_namespaces=ecommerce-dev,ecommerce-staging,ecommerce-prod \
+    #   policies=user-service \
+    #   ttl=1h
+
+  # ── payment-service ───────────────────────────────────────
+  # payment-service reads JWT secret from Vault (and future payment
+  # provider API keys: Stripe, PayPal, etc.)
+  - name: payment-service
+    bound_service_account_names:
+      - payment-service
+    bound_service_account_namespaces:
+      - ecommerce-dev
+      - ecommerce-staging
+      - ecommerce-prod
+    policies:
+      - payment-service       # Defined in vault-policies.hcl
+    ttl: 1h
+
+  # ── order-service ─────────────────────────────────────────
+  # order-service reads DB password + JWT secret.
+  # (Role exists but policy not yet added to vault-policies.hcl — add when
+  # order-service switches from env-var secrets to Vault injection)
+  - name: order-service
+    bound_service_account_names:
+      - order-service
+    bound_service_account_namespaces:
+      - ecommerce-dev
+      - ecommerce-staging
+      - ecommerce-prod
+    policies:
+      - order-service         # TODO: add order-service policy to vault-policies.hcl
+    ttl: 1h
+
+  # ── product-service ───────────────────────────────────────
+  # product-service reads MongoDB URI from Vault.
+  - name: product-service
+    bound_service_account_names:
+      - product-service
+    bound_service_account_namespaces:
+      - ecommerce-dev
+      - ecommerce-staging
+      - ecommerce-prod
+    policies:
+      - product-service       # TODO: add product-service policy to vault-policies.hcl
+    ttl: 1h
+
+  # ── notification-service ──────────────────────────────────
+  # notification-service reads Redis password from Vault (currently no auth
+  # in local dev, but required in prod).
+  - name: notification-service
+    bound_service_account_names:
+      - notification-service
+    bound_service_account_namespaces:
+      - ecommerce-dev
+      - ecommerce-staging
+      - ecommerce-prod
+    policies:
+      - notification-service  # TODO: add policy to vault-policies.hcl
+    ttl: 1h
+
+# ── How the Vault Agent Injector uses this role ──────────────
+# Each service Deployment has annotations (when vault.enabled=true):
+#
+#   vault.hashicorp.com/agent-inject: "true"
+#   vault.hashicorp.com/role: "user-service"   ← matches role.name above
+#   vault.hashicorp.com/agent-inject-secret-db: "secret/data/user-service/db"
+#   vault.hashicorp.com/agent-inject-secret-jwt: "secret/data/user-service/jwt"
+#
+# The injector webhook adds:
+#   - Init container: vault-agent (logs in, fetches secrets, writes files)
+#   - Sidecar: vault-agent (continuously refreshes leased secrets)
+#   - Shared tmpfs volume: /vault/secrets/
+#
+# The app reads: /vault/secrets/db → DB_PASSWORD
+#                /vault/secrets/jwt → JWT_SECRET

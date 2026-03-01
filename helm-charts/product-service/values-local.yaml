@@ -5,8 +5,8 @@ image:
   tag: "latest"
   pullPolicy: Always
 resources:
-  requests: { cpu: "50m",  memory: "64Mi" }
-  limits:   { cpu: "200m", memory: "128Mi" }
+  requests: { cpu: "50m",  memory: "80Mi" }
+  limits:   { cpu: "200m", memory: "256Mi" }
 env:
   PYTHON_ENV: "development"
   MONGO_URI: "mongodb://databases-mongodb:27017"

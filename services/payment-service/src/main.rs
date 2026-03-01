@@ -67,7 +67,11 @@ fn extract_user_id(req: &HttpRequest) -> Result<i64, String> {
     let token = &auth[7..];
     let secret = env::var("JWT_SECRET").unwrap_or_default();
     let mut validation = Validation::new(Algorithm::HS256);
-    validation.insecure_disable_signature_validation(); // use in dev only
+
+    // Only skip signature check in development — NEVER in production
+    if env::var("RUST_ENV").unwrap_or_default() == "development" {
+        validation.insecure_disable_signature_validation();
+    }
 
     let data = decode::<Claims>(
         token,

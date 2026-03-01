@@ -30,3 +30,6 @@ serviceAccount:
   create: true
   name: "api-gateway-bff"
   annotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

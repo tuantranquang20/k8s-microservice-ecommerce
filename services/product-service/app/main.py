@@ -9,6 +9,7 @@
 
 import os
 import time
+from contextlib import asynccontextmanager
 from typing import Optional, List
 from datetime import datetime
 
@@ -20,25 +21,27 @@ from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_
 from .database import connect_to_mongo, close_mongo_connection, get_database, settings
 from .models import ProductCreate, ProductUpdate, ProductResponse
 
+# ── Lifespan (startup + shutdown) ────────────────────────────
+# asynccontextmanager is the modern replacement for @app.on_event.
+# FastAPI 0.93+ recommends this approach; on_event is deprecated.
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    await connect_to_mongo()
+    yield
+    # Shutdown
+    await close_mongo_connection()
+
+
 # ── App Initialisation ────────────────────────────────────────
 app = FastAPI(
     title="product-service",
     description="Product catalogue microservice — FastAPI + MongoDB",
     version="1.0.0",
+    lifespan=lifespan,
     # Disable Swagger UI in production (expose internally only)
     docs_url="/docs" if os.getenv("PYTHON_ENV") != "production" else None,
 )
-
-# ── Lifecycle Events ──────────────────────────────────────────
-# on_event startup/shutdown is used to manage the MongoDB connection pool.
-# This is the recommended pattern — connection is shared across all requests.
-@app.on_event("startup")
-async def startup():
-    await connect_to_mongo()
-
-@app.on_event("shutdown")
-async def shutdown():
-    await close_mongo_connection()
 
 # ── Prometheus Metrics ────────────────────────────────────────
 REQUEST_COUNT = Counter(

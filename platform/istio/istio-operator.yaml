@@ -1,0 +1,66 @@
+# ============================================================
+# istio-operator.yaml — IstioOperator configuration
+# ============================================================
+# LEARNING NOTE — IstioOperator acts as the "values.yaml" for Istio.
+# It controls which Istio components are installed and how they're tuned.
+#
+# Profiles (choose one):
+#   minimal  → only istiod, no ingress gateway
+#   default  → istiod + ingress gateway (what we use)
+#   demo     → everything on + tracing (good for learning, not prod)
+#   preview  → experimental features
+#
+# We extend "default" to reduce resource usage on t3.medium nodes.
+
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: ecommerce-istio
+  namespace: istio-system
+spec:
+  # Base profile — "default" installs: istiod + ingress gateway
+  profile: default
+
+  # ── Global mesh settings ───────────────────────────────────
+  meshConfig:
+    # Enable access logging to stdout (stdout → CloudWatch in EKS)
+    accessLogFile: "/dev/stdout"
+    accessLogEncoding: JSON   # JSON format → easier to query in CloudWatch Insights
+
+    # Distributed tracing via Jaeger (sampling rate)
+    # 1.0 = 100% (good for learning, expensive in prod — use 0.01 = 1%)
+    defaultConfig:
+      tracing:
+        sampling: 100.0
+        zipkin:
+          address: "jaeger-collector.istio-system:9411"
+
+    # Enable Prometheus metrics from Envoy sidecars
+    enablePrometheusMerge: true
+
+  # ── Component resource tuning for t3.medium nodes ─────────
+  components:
+    pilot:  # istiod control plane
+      k8s:
+        resources:
+          requests: { cpu: "100m", memory: "256Mi" }
+          limits:   { cpu: "500m", memory: "512Mi" }
+
+    ingressGateways:
+      - name: istio-ingressgateway
+        enabled: true
+        k8s:
+          resources:
+            requests: { cpu: "100m", memory: "128Mi" }
+            limits:   { cpu: "500m", memory: "256Mi" }
+          # Expose as LoadBalancer in EKS (gets an AWS NLB)
+          service:
+            type: LoadBalancer
+
+  values:
+    global:
+      # Proxy (Envoy sidecar) resource requests
+      proxy:
+        resources:
+          requests: { cpu: "10m", memory: "40Mi" }
+          limits:   { cpu: "200m", memory: "128Mi" }

@@ -1,0 +1,115 @@
+# ============================================================
+# grafana-values.yaml — kube-prometheus-stack Helm values
+# ============================================================
+# Installs Prometheus + Grafana + Alertmanager + Node Exporter in one chart.
+#
+# Install:
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm repo update
+#   helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+#     --namespace monitoring --create-namespace \
+#     -f platform/observability/grafana-values.yaml
+#
+# Access Grafana locally:
+#   kubectl port-forward svc/kube-prometheus-stack-grafana 3000:80 -n monitoring
+#   open http://localhost:3000  (admin / admin-local-dev)
+# ============================================================
+
+# ── Prometheus ────────────────────────────────────────────────
+prometheus:
+  prometheusSpec:
+    # Discover PrometheusRules in ALL namespaces (not just monitoring)
+    # Required so platform/observability/prometheus-rules.yaml is picked up
+    ruleNamespaceSelector: {}
+    ruleSelector: {}
+
+    # Scrape interval — 15s is standard for dev/staging
+    scrapeInterval: "15s"
+    evaluationInterval: "15s"
+
+    # Retention: 15 days of metrics for dev, increase for prod
+    retention: 15d
+    retentionSize: "5GB"
+
+    resources:
+      requests: { cpu: "200m", memory: "512Mi" }
+      limits:   { cpu: "1000m", memory: "2Gi" }
+
+    # Discover ServiceMonitors in ALL namespaces
+    serviceMonitorNamespaceSelector: {}
+    serviceMonitorSelector: {}
+
+    # Discover PodMonitors in ALL namespaces
+    podMonitorNamespaceSelector: {}
+    podMonitorSelector: {}
+
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path   # k3d; change to gp3 for EKS
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 10Gi
+
+# ── Grafana ───────────────────────────────────────────────────
+grafana:
+  enabled: true
+
+  adminPassword: "admin-local-dev"   # PROD: use a Vault secret or K8s Secret
+
+  resources:
+    requests: { cpu: "50m", memory: "128Mi" }
+    limits:   { cpu: "200m", memory: "256Mi" }
+
+  # Auto-load dashboards from ConfigMaps with this label
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard    # ConfigMaps with this label are auto-imported
+      searchNamespace: ALL        # Search all namespaces
+
+  # Persistence for custom dashboards saved via UI
+  persistence:
+    enabled: true
+    storageClassName: local-path
+    size: 1Gi
+
+  # Pre-configure the Prometheus datasource
+  additionalDataSources: []   # kube-prometheus-stack auto-wires Prometheus
+
+# ── Alertmanager ──────────────────────────────────────────────
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests: { cpu: "10m", memory: "32Mi" }
+      limits:   { cpu: "100m", memory: "64Mi" }
+
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 1Gi
+
+# ── Node Exporter (host metrics) ──────────────────────────────
+nodeExporter:
+  enabled: true   # Scrapes CPU, memory, disk, network from each node
+
+# ── kube-state-metrics (Kubernetes object metrics) ────────────
+kubeStateMetrics:
+  enabled: true   # Exposes metrics about Deployments, Pods, PVCs, etc.
+
+# ── Default scrape configs — keep lightweight for local dev ───
+defaultRules:
+  create: true
+  rules:
+    alertmanager: true
+    etcd: false         # No etcd in k3d
+    kubeScheduler: false
+    node: true
+    kubernetesApps: true
+    kubernetesResources: true
+    kubernetesStorage: true

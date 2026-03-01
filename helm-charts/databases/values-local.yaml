@@ -3,12 +3,21 @@
 # =============================================================
 # k3d uses 'local-path' StorageClass (hostPath provisioner).
 # We reduce PVC sizes and resource requests for the laptop.
+#
+# IMPORTANT: All three charts use architecture: standalone
+# to avoid replica sets which need 3+ pods — too heavy for laptop k3d.
 
 postgresql:
+  # architecture: standalone = single primary, no replicas
+  architecture: standalone
   auth:
     postgresPassword: "changeme"   # Plain value — no Vault in k3d
+    username: "postgres"
+    password: "changeme"
+    database: "users"
   primary:
     persistence:
+      enabled: true
       size: 1Gi
       storageClass: "local-path"   # k3d default provisioner
     resources:
@@ -16,18 +25,32 @@ postgresql:
       limits:   { cpu: "500m", memory: "256Mi" }
 
 mongodb:
+  # architecture: standalone = single mongod, no replica set
+  architecture: standalone
   auth:
-    enabled: false
+    enabled: false   # No auth needed locally
   persistence:
+    enabled: true
     size: 1Gi
     storageClass: "local-path"
+  # Cap WiredTiger cache at 100MB. Without this, MongoDB auto-sizes the cache
+  # to ~50% of cgroup memory (256MB by default), leaving NO room for the
+  # Bitnami mongosh init script that runs after startup → OOM kill → CrashLoopBackOff.
+  extraFlags:
+    - "--wiredTigerCacheSizeGB=0.25"  # minimum MongoDB allows; 0.1 is rejected at startup
   resources:
-    requests: { cpu: "100m", memory: "128Mi" }
-    limits:   { cpu: "500m", memory: "256Mi" }
+    requests: { cpu: "100m", memory: "256Mi" }
+    limits:   { cpu: "500m", memory: "768Mi" }  # mongod(~400MB) + mongosh init(~100MB) = ~500MB needed
 
 redis:
+  # CRITICAL: must set standalone — default is replication which deploys
+  # a master + 3 replicas + sentinel pods, way too heavy for laptop k3d
+  architecture: standalone
+  auth:
+    enabled: false   # No password needed locally
   master:
     persistence:
+      enabled: true
       size: 512Mi
       storageClass: "local-path"
     resources:

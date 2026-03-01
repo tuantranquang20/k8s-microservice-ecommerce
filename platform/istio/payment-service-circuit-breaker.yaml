@@ -1,0 +1,79 @@
+# ============================================================
+# payment-service-circuit-breaker.yaml — Circuit Breaker via DestinationRule
+# ============================================================
+# LEARNING NOTE — What is a Circuit Breaker?
+#
+# Named after the electrical component: when a circuit detects a fault
+# (too much current), it "trips" (opens) to protect downstream components.
+#
+# In microservices:
+#   Problem: payment-service starts returning 503s. Without a circuit breaker,
+#   ALL requests queue up waiting, exhausting connection pools and causing
+#   cascading failures across order-service → api-gateway-bff → user experience.
+#
+# Solution (Istio outlier detection):
+#   Istio's Envoy proxy tracks 5xx responses from EACH INDIVIDUAL POD.
+#   If a pod returns 5 consecutive 5xx errors:
+#     1. Envoy "ejects" that pod from the load balancing pool for 30 seconds
+#     2. Traffic is automatically redistributed to healthy pods
+#     3. After 30 seconds, the pod is tentatively re-admitted and tested
+#     4. If it's healthy again, it rejoins the pool normally
+#
+# This is "outlier detection" in Istio terminology (same as circuit breaking).
+# The circuit is at the INDIVIDUAL POD level, not the whole service.
+#
+# Istio does NOT implement the half-open state in the classic 3-state
+# (closed → open → half-open) pattern. Instead, it uses a probabilistic
+# re-admission with baseEjectionTime as the minimum ejection duration.
+
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: payment-service-circuit-breaker
+  namespace: ecommerce-dev
+spec:
+  host: payment-service
+
+  trafficPolicy:
+    # ── Connection pool limits ─────────────────────────────────
+    # If downstream hits these limits, Envoy returns 503 IMMEDIATELY
+    # (fast fail) rather than queuing indefinitely.
+    # This prevents thread/goroutine exhaustion in caller services.
+    connectionPool:
+      tcp:
+        maxConnections: 50          # Max simultaneous TCP connections
+        connectTimeout: 5s          # Fail fast if payment-service is unreachable
+      http:
+        http1MaxPendingRequests: 25  # Queue limit before fast-fail 503
+        http2MaxRequests: 50        # Max concurrent HTTP/2 requests
+        maxRetries: 3               # Max retries in flight at any moment
+
+    # ── Outlier Detection (= Circuit Breaker) ──────────────────
+    outlierDetection:
+      # How many consecutive 5xx errors from ONE POD trigger ejection
+      consecutive5xxErrors: 5
+      # LEARNING: consecutiveGatewayErrors is specifically for 502/503/504.
+      # consecutive5xxErrors is broader (any 5xx, including 500).
+
+      # How often Envoy scans each pod's error stats (analysis window)
+      interval: 10s
+
+      # Minimum ejection duration (circuit open time).
+      # After this, the pod is re-admitted (tested with a small % of traffic).
+      baseEjectionTime: 30s
+
+      # Maximum fraction of pods that can be ejected simultaneously.
+      # 100% means ALL pods can be ejected if they're all failing.
+      # In a 3-pod Deployment: 100% = all 3 can be ejected, causing 503 until recovery.
+      # 50% = at least 1-2 pods always in pool (safer, but hides failures).
+      maxEjectionPercent: 100
+
+      # Minimum number of requests before the outlier detection kicks in.
+      # Prevents ejecting pods on low-traffic noise.
+      minHealthPercent: 0
+
+    # ── Load balancing policy ──────────────────────────────────
+    loadBalancer:
+      # LEAST_REQUEST: route to the pod with the fewest active requests.
+      # Better than ROUND_ROBIN for payment workloads where request duration varies.
+      simple: LEAST_REQUEST
